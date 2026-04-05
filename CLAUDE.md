@@ -8,7 +8,7 @@ The project is a digital platform designed to improve how teams collaborate, org
 
 Core capabilities:
 - **Team management and collaboration** — create/manage teams, assign tasks, organize work, monitor progress
-- **Integrated communication** — in-app messaging within team spaces and online calls (WebRTC via LiveKit + coturn)
+- **Integrated communication** — in-app messaging within team spaces and online calls (WebRTC via LiveKit)
 - **Performance monitoring and analytics** — activity data collection, reports on work distribution, workflow recommendations
 
 ## Architecture
@@ -18,7 +18,7 @@ Three-service hybrid architecture:
 - **Real-Time Service** (Node.js / Socket.IO) — chat messaging, typing/presence, call coordination, push notifications
 - **Analytics Service** (Python 3.12 / FastAPI / SQLAlchemy / Celery) — data aggregation, reports, trend analysis, recommendations
 
-Infrastructure: PostgreSQL 16, Redis 7, LiveKit (WebRTC SFU), coturn (TURN/STUN), MinIO/S3 (files), Nginx (reverse proxy). All services containerized with Docker Compose.
+Infrastructure: PostgreSQL 16, Redis 7, LiveKit (WebRTC SFU with built-in TURN/STUN), MinIO/S3 (files), Nginx (reverse proxy). All services containerized with Docker Compose.
 
 Design docs: `docs/architecture/ARCHITECTURE.md`, `docs/architecture/API_DESIGN.md`, `docs/architecture/DOCKER.md`, and ADRs in `docs/architecture/adr/`.
 

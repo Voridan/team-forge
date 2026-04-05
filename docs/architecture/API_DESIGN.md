@@ -450,13 +450,6 @@ The API server manages call lifecycle and generates LiveKit tokens. Actual media
     "roomName": "team-{teamId}-{callId}",
     "livekitUrl": "wss://livekit.teamcollab.io",
     "token": "eyJ...",          // LiveKit participant token (signed, scoped to this room)
-    "turnServers": [
-      {
-        "urls": ["turn:turn.teamcollab.io:3478?transport=udp", "turns:turn.teamcollab.io:5349?transport=tcp"],
-        "username": "1712345678:userId",
-        "credential": "time-limited-secret"
-      }
-    ],
     "participants": [],
     "startedAt": "2026-04-05T14:30:00Z",
     "startedBy": { "id": "uuid", "firstName": "John", "avatarUrl": "..." }
@@ -471,7 +464,6 @@ The API server manages call lifecycle and generates LiveKit tokens. Actual media
   "data": {
     "token": "eyJ...",           // LiveKit participant token for this user
     "livekitUrl": "wss://livekit.teamcollab.io",
-    "turnServers": [ ... ],
     "participants": [
       { "id": "uuid", "firstName": "John", "avatarUrl": "...", "joinedAt": "..." }
     ]

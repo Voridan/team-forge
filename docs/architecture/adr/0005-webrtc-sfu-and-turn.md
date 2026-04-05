@@ -1,7 +1,7 @@
-# ADR-005: LiveKit as WebRTC SFU + coturn for TURN/STUN
+# ADR-005: LiveKit as All-in-One WebRTC Server (SFU + Built-in TURN/STUN)
 
 ## Status
-Accepted
+Accepted (revised — coturn removed, using LiveKit's built-in TURN)
 
 ## Context
 The platform requires audio/video calls and screen sharing within teams. WebRTC is the standard for browser-based real-time media, but it requires:
@@ -19,12 +19,13 @@ The platform requires audio/video calls and screen sharing within teams. WebRTC 
 - Manageable by a small team (1-3 developers)
 
 ## Decision
-Use **LiveKit** (self-hosted) as the WebRTC SFU and **coturn** as the TURN/STUN server.
+Use **LiveKit** (self-hosted) as the all-in-one WebRTC server. LiveKit provides the SFU, signaling, and a **built-in TURN/STUN server**, eliminating the need for a separate TURN deployment.
 
 ### Why LiveKit?
 
 LiveKit is an open-source, self-hostable WebRTC media server written in Go. It provides:
 - Complete SFU with room management, participant tracking, quality adaptation
+- **Built-in TURN/STUN server** — NAT traversal out of the box, no separate deployment needed
 - Built-in signaling protocol (no need to build our own)
 - Client SDKs: JavaScript, React, iOS, Android, Flutter
 - Server SDKs: Node.js, Python, Go — integrates with both our API and analytics services
@@ -33,20 +34,15 @@ LiveKit is an open-source, self-hostable WebRTC media server written in Go. It p
 - Docker image available, horizontally scalable
 - Active open-source community (CNCF ecosystem)
 
-### Why coturn?
+### Why not a separate coturn?
 
-coturn (https://github.com/coturn/coturn) is the standard open-source TURN/STUN server:
-- Free and open-source (battle-tested, used by Jitsi, Nextcloud Talk, etc.)
-- Supports TURN over UDP, TCP, and TLS (TURNS)
-- STUN built-in alongside TURN
-- Lightweight, runs as a single process
-- Docker image available
-- LiveKit integrates natively with external TURN servers
+We initially considered deploying coturn separately alongside LiveKit. However:
+- LiveKit's built-in TURN is sufficient for our scale (2-20 participants per call, team-sized usage)
+- A separate coturn adds deployment complexity (extra container, port ranges, credential provisioning)
+- Independent TURN scaling is only needed at very large scale (thousands of concurrent calls)
+- For a 1-3 person team, fewer moving parts means less operational burden
 
-We deploy coturn separately rather than relying on LiveKit's built-in TURN because:
-- coturn can be placed on a public-facing server with a dedicated IP
-- Independent scaling — TURN traffic is relay-heavy and can be isolated
-- Shared across environments (dev/staging/prod can use the same TURN server)
+If LiveKit's built-in TURN becomes a bottleneck at scale, we can add a dedicated external TURN server (e.g., coturn) later — this is a deployment change, not an architecture change.
 
 ## Alternatives Considered
 
@@ -57,7 +53,7 @@ We deploy coturn separately rather than relying on LiveKit's built-in TURN becau
 
 ### Jitsi Meet
 - **Considered**: Full-featured video conferencing platform (SFU + UI + signaling).
-- **Rejected**: Jitsi is an entire application, not a composable service. It comes with its own UI, XMPP-based signaling (Orosody), and a complex multi-component deployment (JVB, Orosody, Jicofo, Orosody). We need an SFU that integrates into our platform, not a standalone video app.
+- **Rejected**: Jitsi is an entire application, not a composable service. It comes with its own UI, XMPP-based signaling, and a complex multi-component deployment (JVB, Orosody, Jicofo). We need an SFU that integrates into our platform, not a standalone video app.
 
 ### Pion/ion-sfu (Go)
 - **Considered**: Lightweight Go-based SFU.
@@ -67,28 +63,28 @@ We deploy coturn separately rather than relying on LiveKit's built-in TURN becau
 - **Considered**: Managed WebRTC services with per-minute pricing.
 - **Rejected**: Vendor lock-in, per-minute costs scale linearly with usage, data leaves our infrastructure. Conflicts with our self-hosted, Docker-first approach.
 
-### TURN alternatives (Twilio NTS, Xirsys)
-- **Considered**: Managed TURN services.
-- **Rejected**: Per-usage pricing, vendor dependency. coturn is free, well-documented, and battle-tested in production by major open-source projects.
+### Building a custom SFU
+- **Considered**: Building our own SFU using Pion (Go) or webrtc-rs (Rust).
+- **Rejected**: A production SFU requires implementing RTP routing, simulcast layer selection, bandwidth estimation, DTLS-SRTP, room state management, reconnection handling, and recording — months of work for experienced WebRTC engineers. LiveKit already does all of this on top of Pion.
 
 ## Consequences
 
 ### Positive
+- **Single service for all WebRTC needs** — SFU + TURN/STUN in one container, minimal operational overhead
 - LiveKit drastically reduces development time — room management, quality adaptation, and recording are built-in
 - Client SDKs (JS, React) provide drop-in components for call UI
 - Node.js server SDK allows the API server to create rooms and manage participants programmatically
-- coturn ensures reliable connectivity through corporate firewalls at zero cost
-- Both are self-hosted and Docker-deployable — full control over infrastructure
+- Built-in TURN ensures reliable connectivity through corporate firewalls at zero additional cost or complexity
+- Self-hosted and Docker-deployable — full control over infrastructure
 - LiveKit's architecture (Go + Pion) is highly performant for media forwarding
 - Clear upgrade path: LiveKit Cloud exists as a managed option if self-hosting becomes burdensome
 
 ### Negative
 - LiveKit is an additional service to deploy and operate (separate from our 3 existing services)
 - LiveKit uses its own signaling protocol — call signaling is separate from our Socket.IO real-time service
-- coturn requires a public IP and open UDP ports (may complicate deployment in some environments)
 - LiveKit's recording/egress features require additional storage configuration
 
 ### Neutral
 - Call-related WebSocket events in our real-time service become thinner — they initiate/coordinate calls, but actual media signaling goes through LiveKit's protocol
 - LiveKit has its own dashboard for monitoring call quality
-- coturn credentials must be provisioned and rotated (static auth or time-limited TURN credentials via LiveKit)
+- If TURN scaling becomes an issue at very high scale, we can add external coturn instances without changing the architecture

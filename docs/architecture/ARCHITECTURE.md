@@ -77,14 +77,14 @@ Microservices add operational complexity (service discovery, distributed tracing
 ││ Auth     ││ │- Typing/presenc│ │- Aggregation│ │- Media routing   │
 │├──────────┤│ │- Notifications │ │- Reports    │ │- Simulcast       │
 ││ Teams    ││ │- Call coord.   │ │- Trends     │ │- Recording       │
-│├──────────┤│ │               │ │- Recommend. │ │                 │
+│├──────────┤│ │               │ │- Recommend. │ │- Built-in TURN   │
 ││ Tasks    ││ └───────┬────────┘ └──────┬──────┘ └────────┬────────┘
 │├──────────┤│         │                 │                 │
-││ Messaging││         │                 │          ┌──────▼────────┐
-││ (history)││         │                 │          │   coturn       │
-│├──────────┤│         │                 │          │  (TURN/STUN)  │
-││ Notif.   ││         │                 │          │  NAT traversal│
-│└──────────┘│         │                 │          └───────────────┘
+││ Messaging││         │                 │                 │
+││ (history)││         │                 │                 │
+│├──────────┤│         │                 │                 │
+││ Notif.   ││         │                 │                 │
+│└──────────┘│         │                 │                 │
 └──────┬─────┘         │                 │
        │               │                 │
        ▼               ▼                 ▼
@@ -116,8 +116,7 @@ Microservices add operational complexity (service discovery, distributed tracing
 | **Background Jobs** | BullMQ (Node.js), Celery (Python) | BullMQ for email/notifications, Celery for analytics aggregation — each uses Redis as broker |
 | **Auth** | JWT (access + refresh tokens) | Stateless auth, 15min access tokens, refresh rotation |
 | **Real-Time** | Socket.IO (on NestJS WebSocket gateway) + Redis adapter | Multi-instance WebSocket fan-out via Redis pub/sub |
-| **WebRTC SFU** | LiveKit (self-hosted) | Room management, media routing, simulcast, recording — complete SFU with client/server SDKs |
-| **TURN/STUN** | coturn | Open-source NAT traversal server, ensures connectivity through firewalls (UDP/TCP/TLS) |
+| **WebRTC SFU** | LiveKit (self-hosted) | All-in-one WebRTC server: SFU + built-in TURN/STUN + signaling + recording. Client/server SDKs included |
 | **Reverse Proxy** | Nginx | SSL termination, path-based routing, load balancing, WebSocket proxying |
 | **Containerization** | Docker + Docker Compose | Consistent environments, isolated services |
 
@@ -301,7 +300,7 @@ Client → Nginx → FastAPI → Read aggregated data → Response
 
 ### Overview
 
-Audio/video calls use **LiveKit** as an SFU (Selective Forwarding Unit) and **coturn** for NAT traversal. LiveKit runs as a separate service with its own signaling protocol — our real-time service coordinates call lifecycle (initiate, notify participants), but actual media flows through LiveKit.
+Audio/video calls use **LiveKit** as an all-in-one WebRTC server (SFU + built-in TURN/STUN). LiveKit runs as a separate service with its own signaling protocol — our real-time service coordinates call lifecycle (initiate, notify participants), but actual media flows through LiveKit. LiveKit's built-in TURN server handles NAT traversal, so no separate TURN server is needed.
 
 ### Component Roles
 
@@ -309,8 +308,7 @@ Audio/video calls use **LiveKit** as an SFU (Selective Forwarding Unit) and **co
 |-----------|---------------|
 | **API Server** | Creates LiveKit rooms, generates participant tokens (via LiveKit Node.js SDK) |
 | **Real-Time Service** | Notifies users of incoming calls, coordinates join/leave events via Socket.IO |
-| **LiveKit Server** | SFU — receives media from each participant, selectively forwards to others. Manages room state, quality adaptation (simulcast/dynacast), and optional recording |
-| **coturn** | TURN/STUN — discovers public IPs (STUN) and relays media when direct peer-to-peer fails (TURN). Configured as LiveKit's external TURN server |
+| **LiveKit Server** | All-in-one WebRTC server — SFU (media routing, simulcast/dynacast), built-in TURN/STUN (NAT traversal), signaling, and optional recording. No external TURN server needed |
 | **Client (LiveKit JS SDK)** | Connects directly to LiveKit for media, uses `livekit-client` SDK for WebRTC negotiation |
 
 ### Call Flow
@@ -331,8 +329,7 @@ Audio/video calls use **LiveKit** as an SFU (Selective Forwarding Unit) and **co
    ▼
 4. User A connects to LiveKit with token
    │  Client (livekit-client SDK) → LiveKit Server (WSS signaling + WebRTC media)
-   │
-   │  LiveKit ←→ coturn (ICE candidates, TURN relay if needed)
+   │  LiveKit's built-in TURN handles NAT traversal automatically
    │
    ▼
 5. User B joins the call
@@ -347,7 +344,7 @@ Audio/video calls use **LiveKit** as an SFU (Selective Forwarding Unit) and **co
    │  User B ──(audio/video)──→ LiveKit ──(selective forward)──→ User A
    │
    │  If direct UDP fails (firewall/NAT):
-   │  User ←──(TURN relay)──→ coturn ←──→ LiveKit
+   │  User ←──(TURN relay via LiveKit's built-in TURN)──→ LiveKit
    │
    ▼
 7. Call ends
@@ -359,25 +356,15 @@ Audio/video calls use **LiveKit** as an SFU (Selective Forwarding Unit) and **co
 ### Network Topology
 
 ```
-                         ┌──────────────────┐
-                         │    coturn         │
-                         │  (TURN/STUN)     │
-                         │  UDP: 3478       │
-                         │  TCP: 3478       │
-                         │  TLS: 5349       │
-                         │  Relay: 49152-   │
-                         │         65535    │
-                         └────────┬─────────┘
-                                  │ TURN relay
-                                  │ (when direct fails)
-                                  │
-┌──────────┐   WebRTC    ┌───────▼──────────┐   WebRTC    ┌──────────┐
-│ Client A │ ◄──────────►│   LiveKit SFU    │◄───────────►│ Client B │
+┌──────────┐   WebRTC    ┌──────────────────┐   WebRTC    ┌──────────┐
+│ Client A │ ◄──────────►│   LiveKit Server │◄───────────►│ Client B │
 │          │  media+sig   │                  │  media+sig  │          │
 │          │  (UDP/TCP)   │  WSS: 7880       │  (UDP/TCP)  │          │
 │          │              │  RTC: 7881       │             │          │
 └──────────┘              │  UDP: 50000-     │             └──────────┘
                           │       60000      │
+                          │  TURN: 3478      │
+                          │  (built-in)      │
                           └──────────────────┘
                                   │
                                   │ webhooks (HTTP)
@@ -399,24 +386,22 @@ Audio/video calls use **LiveKit** as an SFU (Selective Forwarding Unit) and **co
 | **Recording** | LiveKit Egress API writes recordings to S3/MinIO, API Server stores metadata |
 | **Client** | `@livekit/components-react` provides pre-built React UI components (video tiles, controls, screen share) |
 
-### coturn Configuration
+### LiveKit Built-in TURN
 
-coturn provides STUN (public IP discovery) and TURN (media relay) for clients behind restrictive NATs or corporate firewalls.
+LiveKit includes a built-in TURN server, eliminating the need for a separate coturn deployment. TURN is configured via LiveKit's config file:
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| **Listening port** | 3478 (UDP + TCP) | Standard STUN/TURN port |
-| **TLS port** | 5349 | TURNS (TURN over TLS) for restrictive firewalls that block UDP |
-| **Relay ports** | 49152-65535 | UDP port range for media relay |
-| **Auth mechanism** | Time-limited credentials | API Server generates short-lived TURN credentials, passed to clients alongside LiveKit tokens |
-| **Realm** | `turn.teamcollab.io` | TURN realm identifier |
+| **TURN port** | 3478 (UDP + TCP) | Standard STUN/TURN port, handled by LiveKit |
+| **TLS TURN port** | 5349 | TURNS (TURN over TLS) for restrictive firewalls that block UDP |
+| **Auth** | Managed by LiveKit | Credentials are automatically provisioned for participants via LiveKit tokens |
 
-LiveKit is configured with coturn's address as its external TURN server via `LIVEKIT_TURN_SERVERS` env variable. Clients receive TURN/STUN server info as part of the ICE configuration from LiveKit.
+Clients receive ICE/TURN server configuration automatically when connecting with a LiveKit token — no manual TURN credential provisioning needed.
 
 ### Scaling Considerations
 
 - **LiveKit** scales horizontally — multiple instances can serve different rooms. For large deployments, LiveKit supports multi-node routing.
-- **coturn** is stateless for STUN, stateful per-relay for TURN. A single coturn instance handles thousands of concurrent relays. Scale vertically (more bandwidth) or add instances behind DNS round-robin.
+- LiveKit's built-in TURN scales with the LiveKit instance. For very large deployments, a dedicated external TURN server (e.g., coturn) can be added later — this is a deployment change, not an architecture change.
 - Call recordings are stored in S3/MinIO, so the SFU doesn't accumulate state.
 - LiveKit's Redis integration enables multi-node room distribution.
 
@@ -425,7 +410,7 @@ LiveKit is configured with coturn's address as its external TURN server via `LIV
 ## 9. Scaling Strategy
 
 ### Phase 1: MVP
-- Single instance of each service (API, Real-Time, Analytics, LiveKit, coturn) behind Nginx
+- Single instance of each service (API, Real-Time, Analytics, LiveKit) behind Nginx
 - Single PostgreSQL instance
 - Single Redis instance
 - All services in Docker Compose on a single server
@@ -436,7 +421,6 @@ LiveKit is configured with coturn's address as its external TURN server via `LIV
 - PostgreSQL read replica for analytics queries
 - BullMQ / Celery worker scaling (add workers independently)
 - LiveKit multi-node (Redis-backed room distribution)
-- coturn: scale vertically (bandwidth) or add instances via DNS round-robin
 
 ### Phase 3: Scale (10K+ users)
 - PgBouncer for connection pooling
@@ -444,7 +428,7 @@ LiveKit is configured with coturn's address as its external TURN server via `LIV
 - Dedicated analytics read replica
 - CDN for static assets and file downloads
 - Consider Kafka if event volume outgrows Redis streams
-- Dedicated coturn instances per region for lower media latency
+- Consider dedicated external TURN server (coturn) per region if LiveKit's built-in TURN becomes a bottleneck
 
 ---
 
@@ -459,8 +443,7 @@ LiveKit is configured with coturn's address as its external TURN server via `LIV
 | **API Protection** | Rate limiting (Nginx + NestJS throttler), class-validator DTOs, CORS |
 | **Data** | Passwords: bcrypt via argon2, Encryption at rest: PostgreSQL disk encryption |
 | **WebSocket** | JWT validation on Socket.IO handshake, per-room authorization |
-| **WebRTC (LiveKit)** | Signed participant tokens with scoped grants (per-room, publish/subscribe permissions) |
-| **TURN (coturn)** | Time-limited credentials generated by API Server, rotated per session |
+| **WebRTC (LiveKit)** | Signed participant tokens with scoped grants (per-room, publish/subscribe permissions). Built-in TURN credentials managed automatically by LiveKit |
 
 ---
 
@@ -474,5 +457,4 @@ LiveKit is configured with coturn's address as its external TURN server via `LIV
 | Analytics service down | No reports/dashboards | API server returns cached last-known data, events queue in Redis |
 | BullMQ workers down | Delayed emails/persistence | Redis retains jobs, workers auto-recover on restart |
 | File storage down | No uploads/downloads | Retry logic, queue failed uploads |
-| LiveKit down | No new calls, active calls drop | Clients receive disconnect event, UI shows "call ended". Restart recovers service. No data loss (call logs already persisted via webhooks) |
-| coturn down | ~10-15% of users can't join calls (those behind strict NAT) | Most users unaffected (direct UDP works). Monitor connectivity, restart coturn. Consider standby instance |
+| LiveKit down | No new calls, active calls drop. Users behind NAT also lose TURN relay. | Clients receive disconnect event, UI shows "call ended". Restart recovers service. No data loss (call logs already persisted via webhooks) |
