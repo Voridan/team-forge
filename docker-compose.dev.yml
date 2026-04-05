@@ -1,0 +1,127 @@
+# Development overrides: hot reload, debug ports, all ports exposed
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  api:
+    build:
+      context: ./api
+      dockerfile: ../docker/api/Dockerfile
+      target: development
+    volumes:
+      - ./api/src:/app/src
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_URL: ${LIVEKIT_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  realtime:
+    build:
+      context: ./realtime
+      dockerfile: ../docker/realtime/Dockerfile
+      target: development
+    volumes:
+      - ./realtime/src:/app/src
+    ports:
+      - "3001:3001"
+      - "9230:9230"
+    environment:
+      NODE_ENV: development
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  analytics:
+    build:
+      context: ./analytics
+      dockerfile: ../docker/analytics/Dockerfile
+      target: development
+    volumes:
+      - ./analytics/app:/app/app
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  analytics-worker:
+    build:
+      context: ./analytics
+      dockerfile: ../docker/analytics/Dockerfile
+      target: development
+    volumes:
+      - ./analytics/app:/app/app
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  livekit:
+    image: livekit/livekit-server
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "3478:3478/udp"
+      - "50000-50060:50000-50060/udp"
+    volumes:
+      - ./docker/livekit/livekit-dev.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    networks:
+      - teamcollab-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - realtime
+      - analytics
+    networks:
+      - teamcollab-network

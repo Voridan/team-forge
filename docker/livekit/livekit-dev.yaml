@@ -1,0 +1,12 @@
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 50060
+  use_external_ip: false
+turn:
+  enabled: true
+  udp_port: 3478
+keys:
+  devkey: secret-change-in-production
+logging:
+  level: info

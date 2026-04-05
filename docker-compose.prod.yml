@@ -1,0 +1,146 @@
+# Production overrides: optimized builds, health checks, resource limits
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: ../docker/api/Dockerfile
+      target: production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_URL: ${LIVEKIT_URL}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  realtime:
+    build:
+      context: ./realtime
+      dockerfile: ../docker/realtime/Dockerfile
+      target: production
+    environment:
+      NODE_ENV: production
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  analytics:
+    build:
+      context: ./analytics
+      dockerfile: ../docker/analytics/Dockerfile
+      target: production
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  analytics-worker:
+    build:
+      context: ./analytics
+      dockerfile: ../docker/analytics/Dockerfile
+      target: production
+    command: celery -A app.workers.celery_app worker --loglevel=warning --concurrency=4
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - teamcollab-network
+
+  livekit:
+    image: livekit/livekit-server:v1.8
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "3478:3478/udp"
+      - "5349:5349/tcp"
+      - "50000-60000:50000-60000/udp"
+    volumes:
+      - ./docker/livekit/livekit-prod.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+    networks:
+      - teamcollab-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    depends_on:
+      - api
+      - realtime
+      - analytics
+    networks:
+      - teamcollab-network
