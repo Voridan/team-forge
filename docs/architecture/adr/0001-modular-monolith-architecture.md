@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-We are building a team collaboration platform from scratch with a small team (1-3 developers). The platform has three distinct workload profiles:
+We are building a team collaboration platform from scratch. The platform has three distinct workload profiles:
 
 1. **CRUD API** — team management, task management, auth, notifications (I/O-bound, request/response)
 2. **Real-time** — chat messaging, presence, typing indicators, call signaling (persistent connections, connection-bound)
