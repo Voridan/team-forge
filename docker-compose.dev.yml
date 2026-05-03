@@ -20,6 +20,9 @@ services:
       target: development
     volumes:
       - ./api/src:/app/src
+      - ./api/prisma:/app/prisma
+      - /app/node_modules
+      - /app/generated
     ports:
       - "3000:3000"
       - "9229:9229"
