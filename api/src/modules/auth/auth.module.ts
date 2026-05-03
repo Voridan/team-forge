@@ -5,6 +5,8 @@ import { EnvironmentVariables } from '../../config/env.validation';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtMiddleware } from './middleware/jwt.middleware';
+import { OAuthProviderRegistry } from './oauth/oauth-provider.registry';
+import { GoogleProvider } from './oauth/providers/google.provider';
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ import { JwtMiddleware } from './middleware/jwt.middleware';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtMiddleware],
+  providers: [AuthService, JwtMiddleware, GoogleProvider, OAuthProviderRegistry],
   exports: [JwtMiddleware],
 })
 export class AuthModule {}

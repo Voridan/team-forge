@@ -13,6 +13,7 @@ import { EnvironmentVariables } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { OAuthProviderRegistry } from './oauth/oauth-provider.registry';
 import { JwtPayload, TokenPair } from './types/auth.types';
 
 const BCRYPT_COST = 10;
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService<EnvironmentVariables, true>,
+    private readonly oauthRegistry: OAuthProviderRegistry,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ user: PublicUser; tokens: TokenPair }> {
@@ -117,6 +119,48 @@ export class AuthService {
       where: { tokenHash, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  async oauthLogin(
+    providerName: string,
+    idToken: string,
+  ): Promise<{ user: PublicUser; tokens: TokenPair }> {
+    const provider = this.oauthRegistry.get(providerName);
+    const profile = await provider.verifyIdToken(idToken);
+
+    let user = await this.prisma.user.findUnique({
+      where: {
+        authProvider_externalId: {
+          authProvider: provider.authProvider,
+          externalId: profile.externalId,
+        },
+      },
+    });
+
+    if (!user) {
+      const emailTaken = await this.prisma.user.findUnique({
+        where: { email: profile.email },
+      });
+      if (emailTaken) {
+        throw new ConflictException(
+          'Email already registered with a different authentication method',
+        );
+      }
+
+      user = await this.prisma.user.create({
+        data: {
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          avatarUrl: profile.avatarUrl,
+          authProvider: provider.authProvider,
+          externalId: profile.externalId,
+        },
+      });
+    }
+
+    const tokens = await this.issueTokenPair(user);
+    return { user: toPublicUser(user), tokens };
   }
 
   private async issueTokenPair(user: User): Promise<TokenPair> {

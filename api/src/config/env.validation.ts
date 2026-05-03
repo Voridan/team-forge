@@ -17,6 +17,9 @@ export class EnvironmentVariables {
 
   @IsString()
   JWT_REFRESH_EXPIRY!: string;
+
+  @IsString()
+  GOOGLE_CLIENT_ID!: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

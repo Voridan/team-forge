@@ -1,6 +1,7 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { OAuthLoginDto } from './dto/oauth-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -29,5 +30,11 @@ export class AuthController {
   @Post('logout')
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.authService.logout(dto.refreshToken);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('oauth/:provider')
+  async oauthLogin(@Param('provider') provider: string, @Body() dto: OAuthLoginDto) {
+    return this.authService.oauthLogin(provider, dto.idToken);
   }
 }
