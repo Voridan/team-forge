@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { AuthProvider, User } from '../../../generated/prisma/client';
+import { PublicUser, toPublicUser } from '../../common/users/public-user';
 import { EnvironmentVariables } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
@@ -185,24 +186,6 @@ export class AuthService {
     );
     return { plaintext, data: { userId, tokenHash, expiresAt } };
   }
-}
-
-export interface PublicUser {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  avatarUrl: string | null;
-}
-
-function toPublicUser(user: User): PublicUser {
-  return {
-    id: user.id,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    avatarUrl: user.avatarUrl,
-  };
 }
 
 function hashToken(plaintext: string): string {
