@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { EnvironmentVariables } from '../../config/env.validation';
@@ -27,6 +27,17 @@ import { GoogleProvider } from './oauth/providers/google.provider';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtMiddleware, GoogleProvider, OAuthProviderRegistry],
-  exports: [JwtMiddleware],
 })
-export class AuthModule {}
+export class AuthModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(JwtMiddleware)
+      .exclude(
+        { path: 'auth/register', method: RequestMethod.POST },
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/refresh', method: RequestMethod.POST },
+        { path: 'auth/oauth/(.*)', method: RequestMethod.POST },
+      )
+      .forRoutes('*');
+  }
+}

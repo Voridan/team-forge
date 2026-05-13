@@ -1,8 +1,10 @@
-# Stage 1: Install dependencies
+# Stage 1: Install dependencies + generate Prisma client
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json yarn.lock ./
+COPY package.json yarn.lock prisma.config.ts ./
+COPY prisma ./prisma
 RUN yarn install --frozen-lockfile --ignore-engines
+RUN npx prisma generate
 
 # Stage 2: Build TypeScript
 FROM deps AS build
@@ -19,8 +21,10 @@ CMD ["yarn", "start:dev"]
 # Stage 3b: Production (minimal runtime)
 FROM node:20-alpine AS production
 WORKDIR /app
-COPY package.json yarn.lock ./
+COPY package.json yarn.lock prisma.config.ts ./
+COPY prisma ./prisma
 RUN yarn install --frozen-lockfile --ignore-engines --production && yarn cache clean
+RUN npx prisma generate
 COPY --from=build /app/dist ./dist/
 USER node
 EXPOSE 3000

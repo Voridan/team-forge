@@ -1,0 +1,64 @@
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { authApi, type LoginPayload, type RegisterPayload } from '@/api/auth';
+import { useAuthStore } from '@/store/auth';
+
+export function useLogin() {
+  const navigate = useNavigate();
+  const setSession = useAuthStore((s) => s.setSession);
+
+  return useMutation({
+    mutationFn: (payload: LoginPayload) => authApi.login(payload),
+    onSuccess: ({ user, tokens }) => {
+      setSession(user, tokens);
+      navigate('/', { replace: true });
+    },
+  });
+}
+
+export function useRegister() {
+  const navigate = useNavigate();
+  const setSession = useAuthStore((s) => s.setSession);
+
+  return useMutation({
+    mutationFn: (payload: RegisterPayload) => authApi.register(payload),
+    onSuccess: ({ user, tokens }) => {
+      setSession(user, tokens);
+      navigate('/', { replace: true });
+    },
+  });
+}
+
+export function useGoogleLogin() {
+  const navigate = useNavigate();
+  const setSession = useAuthStore((s) => s.setSession);
+
+  return useMutation({
+    mutationFn: (idToken: string) => authApi.oauthLogin('google', idToken),
+    onSuccess: ({ user, tokens }) => {
+      setSession(user, tokens);
+      navigate('/', { replace: true });
+    },
+  });
+}
+
+export function useLogout() {
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { refreshToken } = useAuthStore.getState();
+      if (refreshToken) {
+        try {
+          await authApi.logout(refreshToken);
+        } catch {
+          // Ignore — clearing local session anyway
+        }
+      }
+    },
+    onSettled: () => {
+      useAuthStore.getState().clearSession();
+      navigate('/login', { replace: true });
+    },
+  });
+}

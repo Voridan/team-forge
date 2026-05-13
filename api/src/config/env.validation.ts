@@ -2,10 +2,18 @@ import { plainToInstance } from 'class-transformer';
 import { IsString, IsUrl, MinLength, validateSync } from 'class-validator';
 
 export class EnvironmentVariables {
-  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+    protocols: ['postgresql', 'postgres'],
+  })
   DATABASE_URL!: string;
 
-  @IsUrl({ require_tld: false, require_protocol: true })
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+    protocols: ['redis', 'rediss'],
+  })
   REDIS_URL!: string;
 
   @IsString()
