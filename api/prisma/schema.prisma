@@ -46,6 +46,13 @@ enum TaskPriority {
   URGENT
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   email        String       @unique
@@ -75,8 +82,9 @@ model Team {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  members TeamMember[]
-  tasks   Task[]
+  members     TeamMember[]
+  tasks       Task[]
+  invitations TeamInvitation[]
 
   @@map("teams")
 }
@@ -90,9 +98,10 @@ model TeamMember {
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tasksAssigned Task[]        @relation("TaskAssignee")
-  tasksReported Task[]        @relation("TaskReporter")
-  taskComments  TaskComment[]
+  tasksAssigned    Task[]           @relation("TaskAssignee")
+  tasksReported    Task[]           @relation("TaskReporter")
+  taskComments     TaskComment[]
+  invitationsSent  TeamInvitation[]
 
   @@id([teamId, userId])
   @@index([userId])
@@ -160,4 +169,25 @@ model TaskComment {
   @@index([taskId, createdAt])
   @@index([teamId, authorUserId])
   @@map("task_comments")
+}
+
+model TeamInvitation {
+  id              String           @id @default(uuid()) @db.Uuid
+  teamId          String           @map("team_id") @db.Uuid
+  email           String
+  role            TeamRole         @default(MEMBER)
+  invitedByUserId String?          @map("invited_by_user_id") @db.Uuid
+  tokenHash       String           @unique @map("token_hash")
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime         @map("expires_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  acceptedAt      DateTime?        @map("accepted_at")
+
+  team      Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedBy TeamMember? @relation(fields: [teamId, invitedByUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([teamId, status])
+  @@index([email])
+  @@index([expiresAt])
+  @@map("team_invitations")
 }
