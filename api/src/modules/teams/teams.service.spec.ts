@@ -16,7 +16,10 @@ type MockPrisma = {
     delete: jest.Mock;
     count: jest.Mock;
   };
+  task: { updateMany: jest.Mock };
+  taskComment: { updateMany: jest.Mock };
   user: { findMany: jest.Mock };
+  $transaction: jest.Mock;
 };
 
 function makeMockPrisma(): MockPrisma {
@@ -35,9 +38,12 @@ function makeMockPrisma(): MockPrisma {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    task: { updateMany: jest.fn() },
+    taskComment: { updateMany: jest.fn() },
     user: {
       findMany: jest.fn(),
     },
+    $transaction: jest.fn().mockResolvedValue([]),
   };
 }
 

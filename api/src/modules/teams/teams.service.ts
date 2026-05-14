@@ -172,9 +172,7 @@ export class TeamsService {
       await this.assertNotLastOwner(teamId);
     }
 
-    await this.prisma.teamMember.delete({
-      where: { teamId_userId: { teamId, userId } },
-    });
+    await this.detachAndDelete(teamId, userId);
   }
 
   async leaveTeam(teamId: string, userId: string): Promise<void> {
@@ -187,9 +185,7 @@ export class TeamsService {
       await this.assertNotLastOwner(teamId);
     }
 
-    await this.prisma.teamMember.delete({
-      where: { teamId_userId: { teamId, userId } },
-    });
+    await this.detachAndDelete(teamId, userId);
   }
 
   private async assertNotLastOwner(teamId: string): Promise<void> {
@@ -201,5 +197,31 @@ export class TeamsService {
         'Cannot remove the last owner. Promote another member or delete the team first.',
       );
     }
+  }
+
+  /**
+   * Detaches a user from a team's task ecosystem before deleting their TeamMember row.
+   * Required because Task/TaskComment FKs to TeamMember use onDelete: NoAction
+   * (Postgres limitation — SET NULL on composite FK can't null only the user side).
+   * All operations run in a single transaction so partial cleanup is impossible.
+   */
+  private async detachAndDelete(teamId: string, userId: string): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.task.updateMany({
+        where: { teamId, assigneeUserId: userId },
+        data: { assigneeUserId: null },
+      }),
+      this.prisma.task.updateMany({
+        where: { teamId, reporterUserId: userId },
+        data: { reporterUserId: null },
+      }),
+      this.prisma.taskComment.updateMany({
+        where: { teamId, authorUserId: userId },
+        data: { authorUserId: null },
+      }),
+      this.prisma.teamMember.delete({
+        where: { teamId_userId: { teamId, userId } },
+      }),
+    ]);
   }
 }

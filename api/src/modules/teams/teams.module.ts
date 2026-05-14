@@ -6,6 +6,6 @@ import { TeamsService } from './teams.service';
 @Module({
   controllers: [TeamsController],
   providers: [TeamsService, TeamRoleGuard],
-  exports: [TeamsService],
+  exports: [TeamsService, TeamRoleGuard],
 })
 export class TeamsModule {}
