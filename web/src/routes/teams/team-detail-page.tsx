@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, MoreHorizontal, LogOut, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/store/auth';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '@/api/client';
@@ -32,6 +32,7 @@ import {
 } from '@/features/teams/queries';
 import { AddMembersDialog } from '@/features/teams/add-members-dialog';
 import { RoleBadge } from '@/features/teams/role-badge';
+import { TasksBoard } from '@/features/tasks/tasks-board';
 import { getInitials } from '@/lib/utils';
 import type { TeamMemberPublic, TeamRole } from '@/api/types';
 
@@ -61,7 +62,7 @@ function TeamDetail({ teamId }: { teamId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Link
         to="/teams"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -99,41 +100,69 @@ function TeamDetail({ teamId }: { teamId: string }) {
         />
       </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle className="text-base">Members</CardTitle>
-            <CardDescription>
-              {members?.length ?? 0} {members?.length === 1 ? 'person' : 'people'} in this team
-            </CardDescription>
-          </div>
-          {canAddMembers && members && (
-            <AddMembersDialog teamId={teamId} existingMembers={members} />
-          )}
-        </CardHeader>
-        <CardContent className="p-0">
-          {membersLoading ? (
-            <div className="space-y-3 p-6">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+      <Tabs defaultValue="board">
+        <TabsList>
+          <TabsTrigger value="board">Board</TabsTrigger>
+          <TabsTrigger value="members">
+            Members
+            {members && (
+              <span className="ml-1.5 rounded bg-muted px-1.5 text-[10.5px] font-medium text-muted-foreground">
+                {members.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="board">
+          {members ? (
+            <TasksBoard teamId={teamId} members={members} />
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-64 w-72 shrink-0" />
               ))}
             </div>
-          ) : (
-            <ul className="divide-y">
-              {members?.map((member) => (
-                <MemberRow
-                  key={member.userId}
-                  teamId={teamId}
-                  member={member}
-                  isMe={member.userId === me?.id}
-                  myRole={myRole}
-                  canChangeRoles={canChangeRoles}
-                />
-              ))}
-            </ul>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        <TabsContent value="members">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base">Members</CardTitle>
+                <CardDescription>
+                  {members?.length ?? 0} {members?.length === 1 ? 'person' : 'people'} in this team
+                </CardDescription>
+              </div>
+              {canAddMembers && members && (
+                <AddMembersDialog teamId={teamId} existingMembers={members} />
+              )}
+            </CardHeader>
+            <CardContent className="p-0">
+              {membersLoading ? (
+                <div className="space-y-3 p-6">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {members?.map((member) => (
+                    <MemberRow
+                      key={member.userId}
+                      teamId={teamId}
+                      member={member}
+                      isMe={member.userId === me?.id}
+                      myRole={myRole}
+                      canChangeRoles={canChangeRoles}
+                    />
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

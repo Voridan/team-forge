@@ -67,3 +67,33 @@ export interface ProblemDetails {
 export interface ApiEnvelope<T> {
   data: T;
 }
+
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface Task {
+  id: string;
+  teamId: string;
+  title: string;
+  description: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  assigneeUserId: string | null;
+  reporterUserId: string | null;
+  dueDate: string | null;
+  labels: string[];
+  parentTaskId: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  teamId: string;
+  authorUserId: string | null;
+  content: string;
+  createdAt: string;
+  editedAt: string | null;
+}

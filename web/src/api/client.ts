@@ -1,13 +1,16 @@
-import type { ApiEnvelope, ProblemDetails } from './types';
+import type { ApiEnvelope, ProblemDetails } from "./types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 export class ApiError extends Error {
-  constructor(
-    public readonly problem: ProblemDetails,
-    public readonly status: number,
-  ) {
+  public readonly problem: ProblemDetails;
+  public readonly status: number;
+
+  constructor(problem: ProblemDetails, status: number) {
     super(problem.detail ?? problem.title);
+
+    this.problem = problem;
+    this.status = status;
   }
 
   fieldErrorFor(field: string): string | undefined {
@@ -15,7 +18,7 @@ export class ApiError extends Error {
   }
 }
 
-interface RequestOptions extends Omit<RequestInit, 'body'> {
+interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   auth?: boolean;
 }
@@ -43,17 +46,20 @@ async function ensureFreshToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const { body, auth = true, headers: rawHeaders, ...rest } = options;
   const headers = new Headers(rawHeaders);
 
   if (body !== undefined) {
-    headers.set('Content-Type', 'application/json');
+    headers.set("Content-Type", "application/json");
   }
 
   if (auth && authHandlers) {
     const token = authHandlers.getAccessToken();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
   const url = `${API_BASE_URL}${path}`;
@@ -69,7 +75,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     try {
       const newToken = await ensureFreshToken();
       if (newToken) {
-        headers.set('Authorization', `Bearer ${newToken}`);
+        headers.set("Authorization", `Bearer ${newToken}`);
         response = await fetch(url, { ...requestInit, headers });
       }
     } catch {
@@ -94,7 +100,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 }
 
 function unwrapEnvelope<T>(json: ApiEnvelope<T> | T): T {
-  if (json && typeof json === 'object' && 'data' in json) {
+  if (json && typeof json === "object" && "data" in json) {
     return (json as ApiEnvelope<T>).data;
   }
   return json as T;
@@ -106,8 +112,8 @@ async function toApiError(response: Response): Promise<ApiError> {
     problem = (await response.json()) as ProblemDetails;
   } catch {
     problem = {
-      type: 'about:blank',
-      title: response.statusText || 'Request Failed',
+      type: "about:blank",
+      title: response.statusText || "Request Failed",
       status: response.status,
     };
   }

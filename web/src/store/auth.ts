@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { PublicUser, TokenPair } from '@/api/types';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { PublicUser, TokenPair } from "@/api/types";
 
 interface AuthState {
   user: PublicUser | null;
@@ -12,6 +12,7 @@ interface AuthState {
   clearSession: () => void;
 }
 
+// TODO: not store tokens in storage, only in memory. and refresh when close to expiry
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -34,7 +35,7 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, accessToken: null, refreshToken: null }),
     }),
     {
-      name: 'teamforge.auth',
+      name: "teamforge.auth",
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
