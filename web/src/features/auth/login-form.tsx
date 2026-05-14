@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
@@ -17,6 +18,10 @@ type Values = z.infer<typeof schema>;
 
 export function LoginForm() {
   const login = useLogin();
+  const [params] = useSearchParams();
+  const invitationToken = params.get('invitation') ?? undefined;
+  const invitedEmail = params.get('email');
+
   const {
     register,
     handleSubmit,
@@ -24,11 +29,11 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: invitedEmail ?? '', password: '' },
   });
 
   const onSubmit = (values: Values) =>
-    login.mutateAsync(values).catch((err) => {
+    login.mutateAsync({ ...values, invitationToken }).catch((err) => {
       if (err instanceof ApiError) {
         if (err.status === 401) {
           setError('root', { message: 'Invalid email or password' });
@@ -47,13 +52,20 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      {invitationToken && invitedEmail && (
+        <p className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">
+          Sign in as <span className="font-medium">{invitedEmail}</span> to accept your invitation.
+        </p>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
           id="email"
           type="email"
           autoComplete="email"
-          autoFocus
+          autoFocus={!invitedEmail}
+          readOnly={!!invitedEmail}
           aria-invalid={!!errors.email}
           {...register('email')}
         />
@@ -68,6 +80,7 @@ export function LoginForm() {
           id="password"
           type="password"
           autoComplete="current-password"
+          autoFocus={!!invitedEmail}
           aria-invalid={!!errors.password}
           {...register('password')}
         />

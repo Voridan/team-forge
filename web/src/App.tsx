@@ -10,6 +10,7 @@ import { AuthLayout } from '@/routes/auth/auth-layout';
 import { LoginPage } from '@/routes/auth/login-page';
 import { RegisterPage } from '@/routes/auth/register-page';
 import { DashboardPage } from '@/routes/dashboard-page';
+import { AcceptInvitationPage } from '@/routes/invitations/accept-invitation-page';
 import { ProfilePage } from '@/routes/profile-page';
 import { TeamsPage } from '@/routes/teams/teams-page';
 import { TeamDetailPage } from '@/routes/teams/team-detail-page';
@@ -26,6 +27,9 @@ export default function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                 </Route>
+
+                {/* Public — handles its own logged-in / logged-out branching. */}
+                <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AppLayout />}>

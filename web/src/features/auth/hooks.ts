@@ -8,10 +8,13 @@ export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
-    mutationFn: (payload: LoginPayload) => authApi.login(payload),
-    onSuccess: ({ user, tokens }) => {
+    mutationFn: (payload: LoginPayload & { invitationToken?: string }) =>
+      authApi.login(payload),
+    onSuccess: ({ user, tokens, acceptedInvitationTeamId }) => {
       setSession(user, tokens);
-      navigate('/', { replace: true });
+      navigate(acceptedInvitationTeamId ? `/teams/${acceptedInvitationTeamId}` : '/', {
+        replace: true,
+      });
     },
   });
 }
@@ -21,10 +24,13 @@ export function useRegister() {
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
-    mutationFn: (payload: RegisterPayload) => authApi.register(payload),
-    onSuccess: ({ user, tokens }) => {
+    mutationFn: (payload: RegisterPayload & { invitationToken?: string }) =>
+      authApi.register(payload),
+    onSuccess: ({ user, tokens, acceptedInvitationTeamId }) => {
       setSession(user, tokens);
-      navigate('/', { replace: true });
+      navigate(acceptedInvitationTeamId ? `/teams/${acceptedInvitationTeamId}` : '/', {
+        replace: true,
+      });
     },
   });
 }
@@ -34,10 +40,13 @@ export function useGoogleLogin() {
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
-    mutationFn: (idToken: string) => authApi.oauthLogin('google', idToken),
-    onSuccess: ({ user, tokens }) => {
+    mutationFn: ({ idToken, invitationToken }: { idToken: string; invitationToken?: string }) =>
+      authApi.oauthLogin('google', idToken, invitationToken),
+    onSuccess: ({ user, tokens, acceptedInvitationTeamId }) => {
       setSession(user, tokens);
-      navigate('/', { replace: true });
+      navigate(acceptedInvitationTeamId ? `/teams/${acceptedInvitationTeamId}` : '/', {
+        replace: true,
+      });
     },
   });
 }

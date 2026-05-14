@@ -33,6 +33,8 @@ import {
 import { AddMembersDialog } from '@/features/teams/add-members-dialog';
 import { RoleBadge } from '@/features/teams/role-badge';
 import { TasksBoard } from '@/features/tasks/tasks-board';
+import { InviteByEmailDialog } from '@/features/invitations/invite-by-email-dialog';
+import { PendingInvitations } from '@/features/invitations/pending-invitations';
 import { getInitials } from '@/lib/utils';
 import type { TeamMemberPublic, TeamRole } from '@/api/types';
 
@@ -125,9 +127,11 @@ function TeamDetail({ teamId }: { teamId: string }) {
           )}
         </TabsContent>
 
-        <TabsContent value="members">
+        <TabsContent value="members" className="space-y-4">
+          {canAddMembers && <PendingInvitations teamId={teamId} canRevoke={canAddMembers} />}
+
           <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardHeader className="flex-row items-center justify-between space-y-0 gap-3">
               <div>
                 <CardTitle className="text-base">Members</CardTitle>
                 <CardDescription>
@@ -135,7 +139,10 @@ function TeamDetail({ teamId }: { teamId: string }) {
                 </CardDescription>
               </div>
               {canAddMembers && members && (
-                <AddMembersDialog teamId={teamId} existingMembers={members} />
+                <div className="flex items-center gap-2">
+                  <InviteByEmailDialog teamId={teamId} />
+                  <AddMembersDialog teamId={teamId} existingMembers={members} />
+                </div>
               )}
             </CardHeader>
             <CardContent className="p-0">

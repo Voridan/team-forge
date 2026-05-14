@@ -20,6 +20,7 @@ export interface TokenPair {
 export interface AuthResponse {
   user: PublicUser;
   tokens: TokenPair;
+  acceptedInvitationTeamId?: string;
 }
 
 export interface Team {
@@ -96,4 +97,36 @@ export interface TaskComment {
   content: string;
   createdAt: string;
   editedAt: string | null;
+}
+
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+
+export interface TeamInvitation {
+  id: string;
+  teamId: string;
+  email: string;
+  role: TeamRole;
+  invitedByUserId: string | null;
+  status: InvitationStatus;
+  expiresAt: string;
+  createdAt: string;
+  acceptedAt: string | null;
+}
+
+export interface InvitationPreview {
+  email: string;
+  teamId: string;
+  teamName: string;
+  role: TeamRole;
+  inviterName: string | null;
+  expiresAt: string;
+}
+
+export interface CreateInvitationsResult {
+  created: { id: string; email: string; status: InvitationStatus }[];
+  skipped: { email: string; reason: string }[];
+}
+
+export interface AcceptInvitationResult {
+  teamId: string;
 }

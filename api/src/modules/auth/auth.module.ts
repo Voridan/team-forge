@@ -38,8 +38,8 @@ export class AuthModule implements NestModule {
         { path: 'auth/register', method: RequestMethod.POST },
         { path: 'auth/login', method: RequestMethod.POST },
         { path: 'auth/refresh', method: RequestMethod.POST },
-        { path: 'auth/oauth/(.*)', method: RequestMethod.POST },
+        { path: 'auth/oauth/*provider', method: RequestMethod.POST },
       )
-      .forRoutes('*');
+      .forRoutes('*path');
   }
 }

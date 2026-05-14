@@ -6,11 +6,13 @@ export interface RegisterPayload {
   password: string;
   firstName: string;
   lastName: string;
+  invitationToken?: string;
 }
 
 export interface LoginPayload {
   email: string;
   password: string;
+  invitationToken?: string;
 }
 
 export const authApi = {
@@ -30,10 +32,10 @@ export const authApi = {
   logout: (refreshToken: string) =>
     apiFetch<void>('/auth/logout', { method: 'POST', body: { refreshToken } }),
 
-  oauthLogin: (provider: 'google', idToken: string) =>
+  oauthLogin: (provider: 'google', idToken: string, invitationToken?: string) =>
     apiFetch<AuthResponse>(`/auth/oauth/${provider}`, {
       method: 'POST',
-      body: { idToken },
+      body: { idToken, invitationToken },
       auth: false,
     }),
 };

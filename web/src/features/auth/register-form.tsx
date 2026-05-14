@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
@@ -19,6 +20,10 @@ type Values = z.infer<typeof schema>;
 
 export function RegisterForm() {
   const reg = useRegister();
+  const [params] = useSearchParams();
+  const invitationToken = params.get('invitation') ?? undefined;
+  const invitedEmail = params.get('email');
+
   const {
     register,
     handleSubmit,
@@ -26,11 +31,16 @@ export function RegisterForm() {
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { firstName: '', lastName: '', email: '', password: '' },
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: invitedEmail ?? '',
+      password: '',
+    },
   });
 
   const onSubmit = (values: Values) =>
-    reg.mutateAsync(values).catch((err) => {
+    reg.mutateAsync({ ...values, invitationToken }).catch((err) => {
       if (err instanceof ApiError) {
         if (err.status === 409) {
           setError('email', { message: 'Email already in use' });
@@ -49,6 +59,13 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      {invitationToken && invitedEmail && (
+        <p className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">
+          You're creating an account for{' '}
+          <span className="font-medium">{invitedEmail}</span> from a team invitation.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label htmlFor="firstName">First name</Label>
@@ -73,6 +90,7 @@ export function RegisterForm() {
           id="email"
           type="email"
           autoComplete="email"
+          readOnly={!!invitedEmail}
           aria-invalid={!!errors.email}
           {...register('email')}
         />
