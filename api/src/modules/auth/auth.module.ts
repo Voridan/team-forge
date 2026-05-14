@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/c
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { EnvironmentVariables } from '../../config/env.validation';
+import { InvitationsModule } from '../invitations/invitations.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtMiddleware } from './middleware/jwt.middleware';
@@ -10,6 +11,7 @@ import { GoogleProvider } from './oauth/providers/google.provider';
 
 @Module({
   imports: [
+    InvitationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

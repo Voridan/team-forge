@@ -1,5 +1,15 @@
-import { plainToInstance } from 'class-transformer';
-import { IsString, IsUrl, MinLength, validateSync } from 'class-validator';
+import { plainToInstance, Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  Min,
+  MinLength,
+  validateSync,
+} from 'class-validator';
 
 export class EnvironmentVariables {
   @IsUrl({
@@ -28,6 +38,37 @@ export class EnvironmentVariables {
 
   @IsString()
   GOOGLE_CLIENT_ID!: string;
+
+  @IsUrl({ require_tld: false, require_protocol: true })
+  WEB_APP_URL!: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_HOST?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  SMTP_PORT?: number;
+
+  @IsOptional()
+  @IsString()
+  SMTP_USER?: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_PASSWORD?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  SMTP_SECURE?: boolean;
+
+  @IsOptional()
+  @IsString()
+  MAIL_FROM?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

@@ -24,6 +24,10 @@ type MockRegistry = {
   get: jest.Mock<OAuthProvider, [string]>;
 };
 
+type MockInvitationsService = {
+  accept: jest.Mock;
+};
+
 const baseUser: User = {
   id: '11111111-1111-1111-1111-111111111111',
   email: 'alice@example.com',
@@ -61,10 +65,20 @@ function makeMockRegistry(): MockRegistry {
   return { get: jest.fn() };
 }
 
+function makeMockInvitationsService(): MockInvitationsService {
+  return { accept: jest.fn() };
+}
+
 function makeService(
   prisma: MockPrisma,
   registry: MockRegistry = makeMockRegistry(),
-): { service: AuthService; jwtService: JwtService; registry: MockRegistry } {
+  invitations: MockInvitationsService = makeMockInvitationsService(),
+): {
+  service: AuthService;
+  jwtService: JwtService;
+  registry: MockRegistry;
+  invitations: MockInvitationsService;
+} {
   const jwtService = new JwtService({ secret: 'test-secret-at-least-thirty-two-chars' });
   const config = {
     get: jest.fn(
@@ -80,8 +94,9 @@ function makeService(
     jwtService,
     config as never,
     registry as never,
+    invitations as never,
   );
-  return { service, jwtService, registry };
+  return { service, jwtService, registry, invitations };
 }
 
 describe('AuthService', () => {

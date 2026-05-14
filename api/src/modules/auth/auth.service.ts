@@ -11,6 +11,7 @@ import * as crypto from 'node:crypto';
 import { AuthProvider, User } from '../../../generated/prisma/client';
 import { PublicUser, toPublicUser } from '../../common/users/public-user';
 import { EnvironmentVariables } from '../../config/env.validation';
+import { InvitationsService } from '../invitations/invitations.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -34,9 +35,12 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService<EnvironmentVariables, true>,
     private readonly oauthRegistry: OAuthProviderRegistry,
+    private readonly invitationsService: InvitationsService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ user: PublicUser; tokens: TokenPair }> {
+  async register(
+    dto: RegisterDto,
+  ): Promise<{ user: PublicUser; tokens: TokenPair; acceptedInvitationTeamId?: string }> {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
       throw new ConflictException('Email already in use');
@@ -55,10 +59,13 @@ export class AuthService {
     });
 
     const tokens = await this.issueTokenPair(user);
-    return { user: toPublicUser(user), tokens };
+    const acceptedInvitationTeamId = await this.tryAcceptInvitation(user.id, dto.invitationToken);
+    return { user: toPublicUser(user), tokens, acceptedInvitationTeamId };
   }
 
-  async login(dto: LoginDto): Promise<{ user: PublicUser; tokens: TokenPair }> {
+  async login(
+    dto: LoginDto,
+  ): Promise<{ user: PublicUser; tokens: TokenPair; acceptedInvitationTeamId?: string }> {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user || user.authProvider !== AuthProvider.LOCAL || !user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
@@ -70,7 +77,8 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokenPair(user);
-    return { user: toPublicUser(user), tokens };
+    const acceptedInvitationTeamId = await this.tryAcceptInvitation(user.id, dto.invitationToken);
+    return { user: toPublicUser(user), tokens, acceptedInvitationTeamId };
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {
@@ -125,7 +133,8 @@ export class AuthService {
   async oauthLogin(
     providerName: string,
     idToken: string,
-  ): Promise<{ user: PublicUser; tokens: TokenPair }> {
+    invitationToken?: string,
+  ): Promise<{ user: PublicUser; tokens: TokenPair; acceptedInvitationTeamId?: string }> {
     const provider = this.oauthRegistry.get(providerName);
     const profile = await provider.verifyIdToken(idToken);
 
@@ -161,7 +170,29 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokenPair(user);
-    return { user: toPublicUser(user), tokens };
+    const acceptedInvitationTeamId = await this.tryAcceptInvitation(user.id, invitationToken);
+    return { user: toPublicUser(user), tokens, acceptedInvitationTeamId };
+  }
+
+  /**
+   * Best-effort: if an invitationToken was supplied with sign-in, attempt to
+   * accept it. Failures here are non-fatal — the user is already authenticated.
+   * The caller learns which team they joined via the returned id (if any).
+   */
+  private async tryAcceptInvitation(
+    userId: string,
+    invitationToken?: string,
+  ): Promise<string | undefined> {
+    if (!invitationToken) return undefined;
+    try {
+      const { teamId } = await this.invitationsService.accept(invitationToken, userId);
+      return teamId;
+    } catch (err) {
+      this.logger.warn(
+        `Auto-acceptance of invitation failed for user ${userId}: ${(err as Error).message}`,
+      );
+      return undefined;
+    }
   }
 
   private async issueTokenPair(user: User): Promise<TokenPair> {

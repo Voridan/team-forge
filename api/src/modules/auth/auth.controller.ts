@@ -35,6 +35,6 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('oauth/:provider')
   async oauthLogin(@Param('provider') provider: string, @Body() dto: OAuthLoginDto) {
-    return this.authService.oauthLogin(provider, dto.idToken);
+    return this.authService.oauthLogin(provider, dto.idToken, dto.invitationToken);
   }
 }

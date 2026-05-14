@@ -18,6 +18,7 @@ type MockPrisma = {
   };
   task: { updateMany: jest.Mock };
   taskComment: { updateMany: jest.Mock };
+  teamInvitation: { updateMany: jest.Mock };
   user: { findMany: jest.Mock };
   $transaction: jest.Mock;
 };
@@ -40,6 +41,7 @@ function makeMockPrisma(): MockPrisma {
     },
     task: { updateMany: jest.fn() },
     taskComment: { updateMany: jest.fn() },
+    teamInvitation: { updateMany: jest.fn() },
     user: {
       findMany: jest.fn(),
     },

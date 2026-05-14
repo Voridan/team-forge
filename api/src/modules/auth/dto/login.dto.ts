@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -8,4 +8,9 @@ export class LoginDto {
   @IsString()
   @MaxLength(128)
   password!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  invitationToken?: string;
 }
