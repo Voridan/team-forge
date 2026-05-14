@@ -19,8 +19,7 @@ services:
       dockerfile: ../docker/api/Dockerfile
       target: development
     volumes:
-      - ./api/src:/app/src
-      - ./api/prisma:/app/prisma
+      - ./api:/app
       - /app/node_modules
       - /app/generated
     ports:

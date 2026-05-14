@@ -32,6 +32,20 @@ enum UserStatus {
   OFFLINE
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   email        String       @unique
@@ -62,6 +76,7 @@ model Team {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   members TeamMember[]
+  tasks   Task[]
 
   @@map("teams")
 }
@@ -74,6 +89,10 @@ model TeamMember {
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tasksAssigned Task[]        @relation("TaskAssignee")
+  tasksReported Task[]        @relation("TaskReporter")
+  taskComments  TaskComment[]
 
   @@id([teamId, userId])
   @@index([userId])
@@ -94,4 +113,51 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+model Task {
+  id             String       @id @default(uuid()) @db.Uuid
+  teamId         String       @map("team_id") @db.Uuid
+  title          String
+  description    String?
+  priority       TaskPriority @default(MEDIUM)
+  status         TaskStatus   @default(TODO)
+  assigneeUserId String?      @map("assignee_user_id") @db.Uuid
+  reporterUserId String?      @map("reporter_user_id") @db.Uuid
+  dueDate        DateTime?    @map("due_date") @db.Date
+  labels         String[]     @default([])
+  parentTaskId   String?      @map("parent_task_id") @db.Uuid
+  position       Int          @default(0)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  team       Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignee   TeamMember?   @relation("TaskAssignee", fields: [teamId, assigneeUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+  reporter   TeamMember?   @relation("TaskReporter", fields: [teamId, reporterUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+  parentTask Task?         @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks   Task[]        @relation("Subtasks")
+  comments   TaskComment[]
+
+  @@index([teamId, status, position])
+  @@index([teamId, assigneeUserId])
+  @@index([teamId, createdAt])
+  @@index([parentTaskId])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id           String    @id @default(uuid()) @db.Uuid
+  taskId       String    @map("task_id") @db.Uuid
+  teamId       String    @map("team_id") @db.Uuid
+  authorUserId String?   @map("author_user_id") @db.Uuid
+  content      String
+  createdAt    DateTime  @default(now()) @map("created_at")
+  editedAt     DateTime? @map("edited_at")
+
+  task   Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author TeamMember? @relation(fields: [teamId, authorUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([taskId, createdAt])
+  @@index([teamId, authorUserId])
+  @@map("task_comments")
 }
