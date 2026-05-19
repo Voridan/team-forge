@@ -6,6 +6,8 @@ import { validateEnv } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { MailModule } from './modules/mail/mail.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { UsersModule } from './modules/users/users.module';
@@ -19,11 +21,13 @@ import { PrismaModule } from './prisma/prisma.module';
     }),
     PrismaModule,
     MailModule,
+    StorageModule,
     AuthModule,
     UsersModule,
     TeamsModule,
     TasksModule,
     InvitationsModule,
+    MessagingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

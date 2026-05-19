@@ -39,7 +39,6 @@ const DEFAULT_MAIL_FROM = 'TeamForge <noreply@localhost>';
               DEFAULT_SMTP_PORT_TLS) === 465,
           from: config.get('MAIL_FROM', { infer: true }) ?? DEFAULT_MAIL_FROM,
         };
-        console.log(smtp);
 
         logger.log(
           `Mail transport: SMTP ${smtp.host}:${smtp.port} (secure=${smtp.secure})`,

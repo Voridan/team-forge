@@ -42,6 +42,26 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false, require_protocol: true })
   WEB_APP_URL!: string;
 
+  @IsUrl({ require_tld: false, require_protocol: true })
+  S3_ENDPOINT!: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: false, require_protocol: true })
+  S3_PUBLIC_ENDPOINT?: string;
+
+  @IsString()
+  S3_ACCESS_KEY!: string;
+
+  @IsString()
+  S3_SECRET_KEY!: string;
+
+  @IsString()
+  S3_BUCKET!: string;
+
+  @IsOptional()
+  @IsString()
+  S3_REGION?: string;
+
   @IsOptional()
   @IsString()
   SMTP_HOST?: string;

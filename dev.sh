@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+#
+# Dev helper script for TeamForge.
+# Usage: ./dev.sh [command]
+#
+# Commands:
+#   up       (default) Start postgres, redis, minio, api; run migrations + ensure bucket
+#   down     Stop all services (volumes preserved)
+#   reset    Stop + wipe volumes (destroys DB and MinIO files), then 'up' + seed
+#   migrate  Run prisma migrate dev (with prompt if a new migration is needed)
+#   seed     Run prisma db seed
+#   logs     Tail the api container logs
+#   shell    Open a shell inside the api container
+#   status   Show docker compose ps
+#   help     Show this message
+
+set -euo pipefail
+
+export COMPOSE_FILE="docker-compose.yml:docker-compose.dev.yml"
+
+# ----- colors -----
+if [ -t 1 ]; then
+  BLUE=$'\033[34m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; DIM=$'\033[2m'; RESET=$'\033[0m'
+else
+  BLUE=''; GREEN=''; YELLOW=''; RED=''; DIM=''; RESET=''
+fi
+
+log()   { echo "${BLUE}▸${RESET} $*"; }
+ok()    { echo "${GREEN}✓${RESET} $*"; }
+warn()  { echo "${YELLOW}!${RESET} $*"; }
+error() { echo "${RED}✗${RESET} $*" >&2; }
+
+# ----- helpers -----
+
+require_docker() {
+  if ! docker info >/dev/null 2>&1; then
+    error "Docker daemon is not running. Start Docker Desktop and retry."
+    exit 1
+  fi
+}
+
+ensure_env() {
+  if [ ! -f .env ]; then
+    if [ -f .env.example ]; then
+      warn ".env not found — copying from .env.example"
+      cp .env.example .env
+    else
+      error "Neither .env nor .env.example exists at project root"
+      exit 1
+    fi
+  fi
+}
+
+wait_for_healthy() {
+  local service="$1"
+  local attempts=30
+  log "Waiting for ${service} to become healthy…"
+  for ((i = 1; i <= attempts; i++)); do
+    local status
+    status=$(docker compose ps --format json "$service" 2>/dev/null | sed -n 's/.*"Health":"\([^"]*\)".*/\1/p' | head -n1)
+    if [ "$status" = "healthy" ]; then
+      ok "${service} is healthy"
+      return 0
+    fi
+    sleep 1
+  done
+  error "${service} did not become healthy within ${attempts}s"
+  return 1
+}
+
+ensure_minio_bucket() {
+  log "Ensuring MinIO bucket exists…"
+  local bucket
+  bucket=$(grep -E '^S3_BUCKET=' .env | cut -d= -f2)
+  bucket=${bucket:-teamcollab-files}
+  docker compose exec -T minio sh -c "
+    mc alias set local http://localhost:9000 \$MINIO_ROOT_USER \$MINIO_ROOT_PASSWORD >/dev/null 2>&1 || true
+    mc mb local/${bucket} --ignore-existing >/dev/null 2>&1 || true
+  "
+  ok "MinIO bucket '${bucket}' ready"
+}
+
+api_yarn_install_if_needed() {
+  # Cheap heuristic: if api/package.json is newer than the marker file inside the volume, reinstall.
+  if ! docker compose exec -T api sh -c 'test -d node_modules/@nestjs/core' >/dev/null 2>&1; then
+    log "node_modules missing in api container — running yarn install"
+    docker compose exec api yarn install
+  fi
+}
+
+# ----- commands -----
+
+cmd_up() {
+  require_docker
+  ensure_env
+
+  log "Bringing up postgres, redis, minio…"
+  docker compose up -d postgres redis minio
+
+  wait_for_healthy postgres
+  wait_for_healthy redis
+  wait_for_healthy minio
+
+  log "Bringing up api…"
+  docker compose up -d api
+
+  api_yarn_install_if_needed
+  ensure_minio_bucket
+
+  log "Applying any pending migrations…"
+  docker compose exec -T api npx prisma migrate deploy
+
+  ok "Stack is up."
+  echo
+  echo "${DIM}  api      → http://localhost:3000${RESET}"
+  echo "${DIM}  minio    → http://localhost:9001 (console)${RESET}"
+  echo "${DIM}  postgres → localhost:5432${RESET}"
+  echo
+  echo "Next: ${BLUE}cd web && npm run dev${RESET} for the frontend"
+  echo "Stream api logs: ${BLUE}./dev.sh logs${RESET}"
+}
+
+cmd_down() {
+  require_docker
+  log "Stopping services (volumes preserved)…"
+  docker compose down
+  ok "Stopped."
+}
+
+cmd_reset() {
+  require_docker
+  warn "This will DELETE all DB data and MinIO files. Continue? [y/N]"
+  read -r answer
+  case "$answer" in
+    y|Y|yes|YES) ;;
+    *) log "Cancelled."; exit 0 ;;
+  esac
+
+  log "Tearing down with volumes…"
+  docker compose down -v
+
+  cmd_up
+
+  log "Seeding database…"
+  docker compose exec -T api npx prisma db seed
+  ok "Reset + seed complete."
+}
+
+cmd_migrate() {
+  require_docker
+  local name="${1:-}"
+  if [ -n "$name" ]; then
+    docker compose exec api npx prisma migrate dev --name "$name"
+  else
+    docker compose exec api npx prisma migrate dev
+  fi
+}
+
+cmd_seed() {
+  require_docker
+  docker compose exec api npx prisma db seed
+}
+
+cmd_logs() {
+  require_docker
+  docker compose logs -f api
+}
+
+cmd_shell() {
+  require_docker
+  docker compose exec api sh
+}
+
+cmd_status() {
+  require_docker
+  docker compose ps
+}
+
+cmd_help() {
+  sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+# ----- dispatch -----
+
+case "${1:-up}" in
+  up)      cmd_up      ;;
+  down)    cmd_down    ;;
+  reset)   cmd_reset   ;;
+  migrate) shift; cmd_migrate "$@" ;;
+  seed)    cmd_seed    ;;
+  logs)    cmd_logs    ;;
+  shell)   cmd_shell   ;;
+  status)  cmd_status  ;;
+  help|-h|--help) cmd_help ;;
+  *)
+    error "Unknown command: $1"
+    cmd_help
+    exit 1
+    ;;
+esac

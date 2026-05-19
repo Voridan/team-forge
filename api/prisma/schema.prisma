@@ -53,6 +53,17 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+}
+
+enum AttachmentStatus {
+  PENDING
+  UPLOADED
+  LINKED
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   email        String       @unique
@@ -85,6 +96,7 @@ model Team {
   members     TeamMember[]
   tasks       Task[]
   invitations TeamInvitation[]
+  channels    Channel[]
 
   @@map("teams")
 }
@@ -102,6 +114,8 @@ model TeamMember {
   tasksReported    Task[]           @relation("TaskReporter")
   taskComments     TaskComment[]
   invitationsSent  TeamInvitation[]
+  messages         Message[]
+  attachments      Attachment[]
 
   @@id([teamId, userId])
   @@index([userId])
@@ -190,4 +204,63 @@ model TeamInvitation {
   @@index([email])
   @@index([expiresAt])
   @@map("team_invitations")
+}
+
+model Channel {
+  id          String      @id @default(uuid()) @db.Uuid
+  teamId      String      @map("team_id") @db.Uuid
+  name        String
+  description String?
+  type        ChannelType @default(PUBLIC)
+  archivedAt  DateTime?   @map("archived_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  team     Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([teamId, name])
+  @@index([teamId, archivedAt])
+  @@map("channels")
+}
+
+model Message {
+  id           String    @id @default(uuid()) @db.Uuid
+  channelId    String    @map("channel_id") @db.Uuid
+  teamId       String    @map("team_id") @db.Uuid
+  authorUserId String?   @map("author_user_id") @db.Uuid
+  content      String
+  createdAt    DateTime  @default(now()) @map("created_at")
+  editedAt     DateTime? @map("edited_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  channel     Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author      TeamMember?  @relation(fields: [teamId, authorUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+  attachments Attachment[]
+
+  @@index([channelId, createdAt])
+  @@index([teamId, authorUserId])
+  @@map("messages")
+}
+
+model Attachment {
+  id              String           @id @default(uuid()) @db.Uuid
+  teamId          String           @map("team_id") @db.Uuid
+  uploaderUserId  String?          @map("uploader_user_id") @db.Uuid
+  storageKey      String           @unique @map("storage_key")
+  filename        String
+  mimeType        String           @map("mime_type")
+  sizeBytes       Int              @map("size_bytes")
+  status          AttachmentStatus @default(PENDING)
+  linkedMessageId String?          @map("linked_message_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  uploadedAt      DateTime?        @map("uploaded_at")
+
+  uploader TeamMember? @relation(fields: [teamId, uploaderUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+  message  Message?    @relation(fields: [linkedMessageId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([linkedMessageId])
+  @@index([teamId, uploaderUserId])
+  @@map("attachments")
 }

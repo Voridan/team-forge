@@ -223,6 +223,14 @@ export class TeamsService {
         where: { teamId, invitedByUserId: userId },
         data: { invitedByUserId: null },
       }),
+      this.prisma.message.updateMany({
+        where: { teamId, authorUserId: userId },
+        data: { authorUserId: null },
+      }),
+      this.prisma.attachment.updateMany({
+        where: { teamId, uploaderUserId: userId },
+        data: { uploaderUserId: null },
+      }),
       this.prisma.teamMember.delete({
         where: { teamId_userId: { teamId, userId } },
       }),
