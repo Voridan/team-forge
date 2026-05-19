@@ -130,3 +130,62 @@ export interface CreateInvitationsResult {
 export interface AcceptInvitationResult {
   teamId: string;
 }
+
+export type ChannelType = 'PUBLIC' | 'PRIVATE';
+export type AttachmentStatus = 'PENDING' | 'UPLOADED' | 'LINKED';
+
+export interface Channel {
+  id: string;
+  teamId: string;
+  name: string;
+  description: string | null;
+  type: ChannelType;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Attachment {
+  id: string;
+  teamId: string;
+  uploaderUserId: string | null;
+  storageKey: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: AttachmentStatus;
+  linkedMessageId: string | null;
+  createdAt: string;
+  uploadedAt: string | null;
+}
+
+export interface Message {
+  id: string;
+  channelId: string;
+  teamId: string;
+  authorUserId: string | null;
+  content: string;
+  createdAt: string;
+  editedAt: string | null;
+  deletedAt: string | null;
+  attachments: Attachment[];
+}
+
+export interface MessagePage {
+  items: Message[];
+  nextCursor: string | null;
+}
+
+export interface PresignedUpload {
+  attachmentId: string;
+  uploadUrl: string;
+  expiresAt: string;
+}
+
+export interface DownloadInfo {
+  downloadUrl: string;
+  expiresAt: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+}

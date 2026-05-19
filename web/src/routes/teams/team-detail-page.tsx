@@ -1,27 +1,33 @@
-import { Link, useParams } from 'react-router-dom';
-import { ChevronLeft, MoreHorizontal, LogOut, Trash2, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { Link, useParams } from "react-router-dom";
+import {
+  ChevronLeft,
+  MoreHorizontal,
+  LogOut,
+  Trash2,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuthStore } from '@/store/auth';
-import { useNavigate } from 'react-router-dom';
-import { ApiError } from '@/api/client';
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuthStore } from "@/store/auth";
+import { useNavigate } from "react-router-dom";
+import { ApiError } from "@/api/client";
 import {
   useDeleteTeam,
   useLeaveTeam,
@@ -29,16 +35,25 @@ import {
   useTeamMembersQuery,
   useTeamQuery,
   useUpdateMemberRole,
-} from '@/features/teams/queries';
-import { AddMembersDialog } from '@/features/teams/add-members-dialog';
-import { RoleBadge } from '@/features/teams/role-badge';
-import { TasksBoard } from '@/features/tasks/tasks-board';
-import { InviteByEmailDialog } from '@/features/invitations/invite-by-email-dialog';
-import { PendingInvitations } from '@/features/invitations/pending-invitations';
-import { getInitials } from '@/lib/utils';
-import type { TeamMemberPublic, TeamRole } from '@/api/types';
+} from "@/features/teams/queries";
+import { AddMembersDialog } from "@/features/teams/add-members-dialog";
+import { RoleBadge } from "@/features/teams/role-badge";
+import { TasksBoard } from "@/features/tasks/tasks-board";
+import { InviteByEmailDialog } from "@/features/invitations/invite-by-email-dialog";
+import { PendingInvitations } from "@/features/invitations/pending-invitations";
+import { ChannelList } from "@/features/messaging/channel-list";
+import { ChatView } from "@/features/messaging/chat-view";
+import { useChannelsQuery } from "@/features/messaging/queries";
+import { getInitials } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import type { TeamMemberPublic, TeamRole } from "@/api/types";
 
-const ROLE_ORDER: Record<TeamRole, number> = { OWNER: 4, ADMIN: 3, MEMBER: 2, GUEST: 1 };
+const ROLE_ORDER: Record<TeamRole, number> = {
+  OWNER: 4,
+  ADMIN: 3,
+  MEMBER: 2,
+  GUEST: 1,
+};
 
 export function TeamDetailPage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -49,15 +64,34 @@ export function TeamDetailPage() {
 function TeamDetail({ teamId }: { teamId: string }) {
   const navigate = useNavigate();
   const me = useAuthStore((s) => s.user);
-  const { data: team, isLoading: teamLoading, error: teamError } = useTeamQuery(teamId);
-  const { data: members, isLoading: membersLoading } = useTeamMembersQuery(teamId);
+  const {
+    data: team,
+    isLoading: teamLoading,
+    error: teamError,
+  } = useTeamQuery(teamId);
+  const { data: members, isLoading: membersLoading } =
+    useTeamMembersQuery(teamId);
 
   const myMembership = members?.find((m) => m.userId === me?.id);
   const myRole = myMembership?.role;
 
-  const canAddMembers = myRole === 'OWNER' || myRole === 'ADMIN';
-  const canDeleteTeam = myRole === 'OWNER';
-  const canChangeRoles = myRole === 'OWNER';
+  const canAddMembers = myRole === "OWNER" || myRole === "ADMIN";
+  const canDeleteTeam = myRole === "OWNER";
+  const canChangeRoles = myRole === "OWNER";
+
+  const { data: channels } = useChannelsQuery(teamId);
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+
+  // Auto-select the first channel when channels first load (and re-select if the active one is gone).
+  useEffect(() => {
+    if (!channels || channels.length === 0) {
+      if (activeChannelId) setActiveChannelId(null);
+      return;
+    }
+    const stillPresent =
+      activeChannelId && channels.some((c) => c.id === activeChannelId);
+    if (!stillPresent) setActiveChannelId(channels[0].id);
+  }, [channels, activeChannelId]);
 
   if (teamError instanceof ApiError && teamError.status === 404) {
     return <NotFound />;
@@ -82,9 +116,11 @@ function TeamDetail({ teamId }: { teamId: string }) {
             </>
           ) : team ? (
             <>
-              <h1 className="text-2xl font-semibold tracking-tight">{team.name}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {team.name}
+              </h1>
               <p className="text-sm text-muted-foreground">
-                {team.description || 'No description'}
+                {team.description || "No description"}
               </p>
             </>
           ) : null}
@@ -94,10 +130,10 @@ function TeamDetail({ teamId }: { teamId: string }) {
           canDelete={canDeleteTeam}
           canLeave={!!myMembership}
           isLastOwner={
-            myRole === 'OWNER' &&
-            (members?.filter((m) => m.role === 'OWNER').length ?? 0) <= 1
+            myRole === "OWNER" &&
+            (members?.filter((m) => m.role === "OWNER").length ?? 0) <= 1
           }
-          onDelete={() => navigate('/teams')}
+          onDelete={() => navigate("/teams")}
           teamId={teamId}
         />
       </div>
@@ -105,6 +141,14 @@ function TeamDetail({ teamId }: { teamId: string }) {
       <Tabs defaultValue="board">
         <TabsList>
           <TabsTrigger value="board">Board</TabsTrigger>
+          <TabsTrigger value="chat">
+            Chat
+            {channels && channels.length > 0 && (
+              <span className="ml-1.5 rounded bg-muted px-1.5 text-[10.5px] font-medium text-muted-foreground">
+                {channels.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="members">
             Members
             {members && (
@@ -114,6 +158,29 @@ function TeamDetail({ teamId }: { teamId: string }) {
             )}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="chat">
+          <div className="flex h-[calc(100vh-15rem)] min-h-[480px] overflow-hidden rounded-xl border bg-card/40">
+            <ChannelList
+              teamId={teamId}
+              activeChannelId={activeChannelId}
+              onSelect={setActiveChannelId}
+              canCreate={!!myMembership}
+            />
+            {members ? (
+              <ChatView
+                teamId={teamId}
+                channelId={activeChannelId}
+                members={members}
+                myRole={myRole}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <Skeleton className="h-32 w-64" />
+              </div>
+            )}
+          </div>
+        </TabsContent>
 
         <TabsContent value="board">
           {members ? (
@@ -128,14 +195,17 @@ function TeamDetail({ teamId }: { teamId: string }) {
         </TabsContent>
 
         <TabsContent value="members" className="space-y-4">
-          {canAddMembers && <PendingInvitations teamId={teamId} canRevoke={canAddMembers} />}
+          {canAddMembers && (
+            <PendingInvitations teamId={teamId} canRevoke={canAddMembers} />
+          )}
 
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0 gap-3">
               <div>
                 <CardTitle className="text-base">Members</CardTitle>
                 <CardDescription>
-                  {members?.length ?? 0} {members?.length === 1 ? 'person' : 'people'} in this team
+                  {members?.length ?? 0}{" "}
+                  {members?.length === 1 ? "person" : "people"} in this team
                 </CardDescription>
               </div>
               {canAddMembers && members && (
@@ -190,8 +260,7 @@ function MemberRow({
   const updateRole = useUpdateMemberRole(teamId);
   const removeMember = useRemoveMember(teamId);
 
-  const canRemove =
-    !isMe && myRole && ROLE_ORDER[myRole] >= ROLE_ORDER.ADMIN;
+  const canRemove = !isMe && myRole && ROLE_ORDER[myRole] >= ROLE_ORDER.ADMIN;
   const canManage = canChangeRoles && !isMe;
 
   const onRoleChange = (role: TeamRole) =>
@@ -201,7 +270,9 @@ function MemberRow({
         onSuccess: () => toast.success(`Updated role to ${role.toLowerCase()}`),
         onError: (err) =>
           toast.error(
-            err instanceof ApiError ? err.problem.detail ?? err.problem.title : 'Failed',
+            err instanceof ApiError
+              ? (err.problem.detail ?? err.problem.title)
+              : "Failed",
           ),
       },
     );
@@ -211,7 +282,9 @@ function MemberRow({
       onSuccess: () => toast.success(`Removed ${member.firstName}`),
       onError: (err) =>
         toast.error(
-          err instanceof ApiError ? err.problem.detail ?? err.problem.title : 'Failed',
+          err instanceof ApiError
+            ? (err.problem.detail ?? err.problem.title)
+            : "Failed",
         ),
     });
 
@@ -219,12 +292,16 @@ function MemberRow({
     <li className="flex items-center gap-3 px-6 py-3">
       <Avatar>
         {member.avatarUrl && <AvatarImage src={member.avatarUrl} alt="" />}
-        <AvatarFallback>{getInitials(member.firstName, member.lastName)}</AvatarFallback>
+        <AvatarFallback>
+          {getInitials(member.firstName, member.lastName)}
+        </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">
           {member.firstName} {member.lastName}
-          {isMe && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
+          {isMe && (
+            <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>
+          )}
         </p>
         <p className="truncate text-xs text-muted-foreground">{member.email}</p>
       </div>
@@ -239,15 +316,17 @@ function MemberRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {canManage &&
-              (['OWNER', 'ADMIN', 'MEMBER', 'GUEST'] as TeamRole[]).map((role) => (
-                <DropdownMenuItem
-                  key={role}
-                  disabled={role === member.role}
-                  onSelect={() => onRoleChange(role)}
-                >
-                  Set as {role.toLowerCase()}
-                </DropdownMenuItem>
-              ))}
+              (["OWNER", "ADMIN", "MEMBER", "GUEST"] as TeamRole[]).map(
+                (role) => (
+                  <DropdownMenuItem
+                    key={role}
+                    disabled={role === member.role}
+                    onSelect={() => onRoleChange(role)}
+                  >
+                    Set as {role.toLowerCase()}
+                  </DropdownMenuItem>
+                ),
+              )}
             {canManage && canRemove && <DropdownMenuSeparator />}
             {canRemove && (
               <DropdownMenuItem
@@ -284,15 +363,17 @@ function TeamMenu({
   if (!canDelete && !canLeave) return null;
 
   const handleDelete = () => {
-    if (!confirm('Delete this team? This cannot be undone.')) return;
+    if (!confirm("Delete this team? This cannot be undone.")) return;
     deleteMutation.mutate(teamId, {
       onSuccess: () => {
-        toast.success('Team deleted');
+        toast.success("Team deleted");
         onDelete();
       },
       onError: (err) =>
         toast.error(
-          err instanceof ApiError ? err.problem.detail ?? err.problem.title : 'Failed',
+          err instanceof ApiError
+            ? (err.problem.detail ?? err.problem.title)
+            : "Failed",
         ),
     });
   };
@@ -300,12 +381,14 @@ function TeamMenu({
   const handleLeave = () => {
     leaveMutation.mutate(teamId, {
       onSuccess: () => {
-        toast.success('You left the team');
+        toast.success("You left the team");
         onDelete();
       },
       onError: (err) =>
         toast.error(
-          err instanceof ApiError ? err.problem.detail ?? err.problem.title : 'Failed',
+          err instanceof ApiError
+            ? (err.problem.detail ?? err.problem.title)
+            : "Failed",
         ),
     });
   };
@@ -315,8 +398,17 @@ function TeamMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" aria-label="Team menu" disabled={busy}>
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Team menu"
+          disabled={busy}
+        >
+          {busy ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <MoreHorizontal className="size-4" />
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
