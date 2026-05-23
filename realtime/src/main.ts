@@ -3,6 +3,8 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { jwtHandshake } from './auth/jwt-handshake';
 import { attachChatGateway } from './gateway/chat.gateway';
+import { attachPresenceGateway } from './gateway/presence.gateway';
+import { attachTypingGateway } from './gateway/typing.gateway';
 import { attachRedisAdapter } from './redis/redis-adapter';
 import { startMessagingSubscriber } from './redis/messaging-subscriber';
 import { attachSocketRateLimiter } from './rate-limit/socket-rate-limiter';
@@ -59,11 +61,15 @@ const rateLimiter = attachSocketRateLimiter(REDIS_URL);
 
 io.use(jwtHandshake(JWT_SECRET));
 
-const wireSocket = attachChatGateway(io, API_URL, log);
+const wireChat = attachChatGateway(io, API_URL, log);
+const wirePresence = attachPresenceGateway(io);
+const wireTyping = attachTypingGateway(io);
 
 io.on('connection', (socket) => {
   rateLimiter.apply(socket);
-  wireSocket(socket);
+  wireChat(socket);
+  wirePresence(socket);
+  wireTyping(socket);
 
   const userId = socket.data.user?.id;
   log(`connect socket=${socket.id} user=${userId ?? 'unknown'}`);

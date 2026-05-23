@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { cn, getInitials } from '@/lib/utils';
+import { PresenceDot } from '@/realtime/presence-dot';
 import { useDeleteMessage, useEditMessage } from './queries';
 import { MessageAttachments } from './message-attachments';
 
@@ -78,12 +79,15 @@ export function MessageRow({
     >
       <div className="w-9 shrink-0">
         {showHeader ? (
-          <Avatar className="size-9">
-            {member?.avatarUrl && <AvatarImage src={member.avatarUrl} alt="" />}
-            <AvatarFallback className="text-xs">
-              {member ? getInitials(member.firstName, member.lastName) : '??'}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="size-9">
+              {member?.avatarUrl && <AvatarImage src={member.avatarUrl} alt="" />}
+              <AvatarFallback className="text-xs">
+                {member ? getInitials(member.firstName, member.lastName) : '??'}
+              </AvatarFallback>
+            </Avatar>
+            <PresenceDot userId={member?.userId} />
+          </div>
         ) : (
           <span
             className="block pt-1 text-center text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100"

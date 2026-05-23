@@ -11,6 +11,7 @@ import {
   type UpdateChannelPayload,
   type UpdateMessagePayload,
 } from '@/api/messaging';
+import { getSocket } from '@/realtime/socket-client';
 import type { MessagePage } from '@/api/types';
 
 export const messagingKeys = {
@@ -58,6 +59,9 @@ export function useCreateChannel(teamId: string) {
     mutationFn: (payload: CreateChannelPayload) => messagingApi.createChannel(teamId, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagingKeys.channels(teamId) });
+      // Ask the realtime server to re-fetch our channel memberships so the
+      // new channel's Socket.IO room is joined without a reconnect.
+      getSocket()?.emit('channels:refresh');
     },
   });
 }

@@ -44,6 +44,7 @@ import { PendingInvitations } from "@/features/invitations/pending-invitations";
 import { ChannelList } from "@/features/messaging/channel-list";
 import { ChatView } from "@/features/messaging/chat-view";
 import { useChannelsQuery } from "@/features/messaging/queries";
+import { PresenceDot } from "@/realtime/presence-dot";
 import { getInitials } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import type { TeamMemberPublic, TeamRole } from "@/api/types";
@@ -290,12 +291,15 @@ function MemberRow({
 
   return (
     <li className="flex items-center gap-3 px-6 py-3">
-      <Avatar>
-        {member.avatarUrl && <AvatarImage src={member.avatarUrl} alt="" />}
-        <AvatarFallback>
-          {getInitials(member.firstName, member.lastName)}
-        </AvatarFallback>
-      </Avatar>
+      <div className="relative">
+        <Avatar>
+          {member.avatarUrl && <AvatarImage src={member.avatarUrl} alt="" />}
+          <AvatarFallback>
+            {getInitials(member.firstName, member.lastName)}
+          </AvatarFallback>
+        </Avatar>
+        <PresenceDot userId={member.userId} />
+      </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">
           {member.firstName} {member.lastName}

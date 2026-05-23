@@ -62,15 +62,24 @@ async function joinRoomsForUser(
     return;
   }
 
-  // Leave channel rooms we previously joined (so revoked access actually revokes).
+  // Leave rooms we previously joined (so revoked access actually revokes).
   for (const room of socket.rooms) {
-    if (room.startsWith('channel:')) await socket.leave(room);
+    if (room.startsWith('channel:') || room.startsWith('team:')) {
+      await socket.leave(room);
+    }
   }
 
+  const teamIds = new Set<string>();
   for (const m of memberships) {
     await socket.join(`channel:${m.channelId}`);
+    teamIds.add(m.teamId);
   }
-  log(`socket ${socket.id} (user ${socket.data.user?.id}) joined ${memberships.length} channel(s)`);
+  for (const teamId of teamIds) {
+    await socket.join(`team:${teamId}`);
+  }
+  log(
+    `socket ${socket.id} (user ${socket.data.user?.id}) joined ${memberships.length} channel(s) across ${teamIds.size} team(s)`,
+  );
 }
 
 function extractBearerFromHeader(header: string | string[] | undefined): string | undefined {

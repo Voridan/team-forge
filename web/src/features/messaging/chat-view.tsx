@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { useChannelQuery, useMessagesQuery } from './queries';
 import { MessageComposer } from './message-composer';
 import { MessageRow } from './message-row';
+import { TypingIndicator } from './typing-indicator';
 
 const ROLE_LEVEL: Record<TeamRole, number> = {
   GUEST: 1,
@@ -195,6 +196,8 @@ export function ChatView({ teamId, channelId, members, myRole }: ChatViewProps) 
           New messages
         </button>
       </div>
+
+      <TypingIndicator channelId={channelId} members={members} />
 
       <MessageComposer
         teamId={teamId}

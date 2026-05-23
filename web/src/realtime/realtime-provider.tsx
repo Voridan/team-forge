@@ -8,13 +8,26 @@ import {
   applyMessageDeleted,
   applyMessageEdited,
 } from './cache-bridge';
+import { usePresenceStore, type PresenceStatus } from './presence-store';
 import { connectSocket, disconnectSocket } from './socket-client';
+import { useTypingStore } from './typing-store';
 import type { Message } from '@/api/types';
 
 interface IncomingPayload {
   channelId: string;
   payload?: Message;
   messageId?: string;
+}
+
+interface TypingUpdatePayload {
+  channelId: string;
+  userId: string;
+  isTyping: boolean;
+}
+
+interface PresenceUpdatePayload {
+  userId: string;
+  status: PresenceStatus;
 }
 
 /**
@@ -73,11 +86,25 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       });
     });
 
+    socket.on('typing:update', (event: TypingUpdatePayload) => {
+      if (event.isTyping) {
+        useTypingStore.getState().markTyping(event.channelId, event.userId);
+      } else {
+        useTypingStore.getState().markStopped(event.channelId, event.userId);
+      }
+    });
+
+    socket.on('presence:changed', (event: PresenceUpdatePayload) => {
+      usePresenceStore.getState().setStatus(event.userId, event.status);
+    });
+
     socket.io.on('reconnect', () => {
       // Refetch all messages queries to fill any gap during the disconnect.
       qc.invalidateQueries({
         predicate: (q) => q.queryKey[0] === messagingKeys.all[0] && q.queryKey[1] === 'messages',
       });
+      // Presence after a disconnect is stale — clear and let events repopulate.
+      usePresenceStore.getState().clear();
     });
 
     socket.on('connect_error', (err) => {
@@ -90,6 +117,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       socket.off('message:created');
       socket.off('message:edited');
       socket.off('message:deleted');
+      socket.off('typing:update');
+      socket.off('presence:changed');
       socket.off('connect_error');
       socket.io.off('reconnect');
     };

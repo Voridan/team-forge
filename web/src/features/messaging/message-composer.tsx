@@ -1,12 +1,16 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Paperclip, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { getSocket } from '@/realtime/socket-client';
 import { AttachmentChip } from './attachment-chip';
 import { useSendMessage } from './queries';
 import { useAttachmentUpload } from './use-attachment-upload';
+
+const TYPING_THROTTLE_MS = 3_000; // re-emit at most this often while user keeps typing
+const TYPING_IDLE_STOP_MS = 4_000; // emit stop this long after the last keystroke
 
 interface MessageComposerProps {
   teamId: string;
@@ -18,6 +22,39 @@ export function MessageComposer({ teamId, channelId, channelName }: MessageCompo
   const [content, setContent] = useState('');
   const upload = useAttachmentUpload(teamId);
   const sendMutation = useSendMessage(teamId, channelId);
+
+  // Typing emit state — refs only, so changes don't trigger re-renders.
+  const lastTypingStartAt = useRef<number>(0);
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopTyping = () => {
+    if (stopTimer.current) {
+      clearTimeout(stopTimer.current);
+      stopTimer.current = null;
+    }
+    if (lastTypingStartAt.current > 0) {
+      lastTypingStartAt.current = 0;
+      getSocket()?.emit('typing:stop', { channelId });
+    }
+  };
+
+  const notifyTyping = () => {
+    const now = Date.now();
+    const socket = getSocket();
+    if (!socket) return;
+    if (now - lastTypingStartAt.current > TYPING_THROTTLE_MS) {
+      socket.emit('typing:start', { channelId });
+      lastTypingStartAt.current = now;
+    }
+    if (stopTimer.current) clearTimeout(stopTimer.current);
+    stopTimer.current = setTimeout(stopTyping, TYPING_IDLE_STOP_MS);
+  };
+
+  // Clean up the typing state when the channel changes or composer unmounts.
+  useEffect(() => {
+    return () => stopTyping();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canSubmit =
@@ -43,6 +80,7 @@ export function MessageComposer({ teamId, channelId, channelName }: MessageCompo
         onSuccess: () => {
           setContent('');
           upload.reset();
+          stopTyping();
         },
         onError: (err) => {
           const msg =
@@ -121,7 +159,12 @@ export function MessageComposer({ teamId, channelId, channelName }: MessageCompo
         <Textarea
           rows={1}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            setContent(e.target.value);
+            if (e.target.value.trim().length > 0) notifyTyping();
+            else stopTyping();
+          }}
+          onBlur={stopTyping}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
