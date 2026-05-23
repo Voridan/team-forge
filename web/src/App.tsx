@@ -4,6 +4,7 @@ import { QueryProvider } from '@/providers/query-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { ConditionalGoogleOAuth } from '@/providers/google-oauth-provider';
 import { SessionBootstrap } from '@/components/app/session-bootstrap';
+import { RealtimeProvider } from '@/realtime/realtime-provider';
 import { ProtectedRoute } from '@/routes/protected-route';
 import { AppLayout } from '@/routes/app-layout';
 import { AuthLayout } from '@/routes/auth/auth-layout';
@@ -31,7 +32,13 @@ export default function App() {
                 {/* Public — handles its own logged-in / logged-out branching. */}
                 <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
 
-                <Route element={<ProtectedRoute />}>
+                <Route
+                  element={
+                    <RealtimeProvider>
+                      <ProtectedRoute />
+                    </RealtimeProvider>
+                  }
+                >
                   <Route element={<AppLayout />}>
                     <Route index element={<DashboardPage />} />
                     <Route path="teams" element={<TeamsPage />} />

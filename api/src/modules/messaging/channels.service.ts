@@ -37,6 +37,25 @@ export class ChannelsService {
     });
   }
 
+  /**
+   * Returns all (channelId, teamId) pairs visible to the user. Used by the realtime
+   * service on Socket.IO handshake to auto-join the relevant rooms.
+   *
+   * Visibility today: every PUBLIC channel in every team where the user is a member.
+   * When PRIVATE channels land, add the per-channel membership join here.
+   */
+  async listForUser(userId: string): Promise<{ channelId: string; teamId: string }[]> {
+    const rows = await this.prisma.channel.findMany({
+      where: {
+        archivedAt: null,
+        type: ChannelType.PUBLIC,
+        team: { members: { some: { userId } } },
+      },
+      select: { id: true, teamId: true },
+    });
+    return rows.map((c) => ({ channelId: c.id, teamId: c.teamId }));
+  }
+
   async getById(teamId: string, channelId: string): Promise<Channel> {
     const channel = await this.prisma.channel.findFirst({
       where: { id: channelId, teamId },

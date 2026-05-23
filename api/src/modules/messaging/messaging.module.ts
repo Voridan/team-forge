@@ -7,10 +7,16 @@ import { ChannelsService } from './channels.service';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
 import { MessagingPublisher } from './messaging.publisher';
+import { MyChannelsController } from './my-channels.controller';
 
 @Module({
   imports: [TeamsModule],
-  controllers: [ChannelsController, MessagesController, AttachmentsController],
+  controllers: [
+    ChannelsController,
+    MessagesController,
+    AttachmentsController,
+    MyChannelsController,
+  ],
   providers: [ChannelsService, MessagesService, AttachmentsService, MessagingPublisher],
   exports: [ChannelsService, MessagesService, AttachmentsService],
 })

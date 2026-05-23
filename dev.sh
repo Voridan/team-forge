@@ -88,6 +88,13 @@ api_yarn_install_if_needed() {
   fi
 }
 
+realtime_yarn_install_if_needed() {
+  if ! docker compose exec -T realtime sh -c 'test -d node_modules/socket.io' >/dev/null 2>&1; then
+    log "node_modules missing in realtime container — running yarn install"
+    docker compose exec realtime yarn install
+  fi
+}
+
 # ----- commands -----
 
 cmd_up() {
@@ -101,10 +108,11 @@ cmd_up() {
   wait_for_healthy redis
   wait_for_healthy minio
 
-  log "Bringing up api…"
-  docker compose up -d api
+  log "Bringing up api + realtime…"
+  docker compose up -d api realtime
 
   api_yarn_install_if_needed
+  realtime_yarn_install_if_needed
   ensure_minio_bucket
 
   log "Applying any pending migrations…"
@@ -113,6 +121,7 @@ cmd_up() {
   ok "Stack is up."
   echo
   echo "${DIM}  api      → http://localhost:3000${RESET}"
+  echo "${DIM}  realtime → http://localhost:3001${RESET}"
   echo "${DIM}  minio    → http://localhost:9001 (console)${RESET}"
   echo "${DIM}  postgres → localhost:5432${RESET}"
   echo

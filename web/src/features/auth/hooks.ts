@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { authApi, type LoginPayload, type RegisterPayload } from '@/api/auth';
+import { disconnectSocket } from '@/realtime/socket-client';
 import { useAuthStore } from '@/store/auth';
 
 export function useLogin() {
@@ -66,6 +67,7 @@ export function useLogout() {
       }
     },
     onSettled: () => {
+      disconnectSocket();
       useAuthStore.getState().clearSession();
       navigate('/login', { replace: true });
     },
