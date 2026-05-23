@@ -81,18 +81,27 @@ ensure_minio_bucket() {
 }
 
 api_yarn_install_if_needed() {
-  # Cheap heuristic: if api/package.json is newer than the marker file inside the volume, reinstall.
-  if ! docker compose exec -T api sh -c 'test -d node_modules/@nestjs/core' >/dev/null 2>&1; then
-    log "node_modules missing in api container — running yarn install"
+  if needs_yarn_install api; then
+    log "api: package.json changed — running yarn install"
     docker compose exec api yarn install
   fi
 }
 
 realtime_yarn_install_if_needed() {
-  if ! docker compose exec -T realtime sh -c 'test -d node_modules/socket.io' >/dev/null 2>&1; then
-    log "node_modules missing in realtime container — running yarn install"
-    docker compose exec realtime yarn install
+  if needs_yarn_install realtime; then
+    log "realtime: package.json changed — running yarn install"
+    docker compose exec realtime yarn install --ignore-engines
   fi
+}
+
+# Reinstall if package.json is newer than yarn's integrity marker, or if
+# node_modules is missing entirely. Cheap when nothing changed.
+needs_yarn_install() {
+  local service=$1
+  ! docker compose exec -T "$service" sh -c '
+    [ -d node_modules ] && [ -f node_modules/.yarn-integrity ] \
+      && [ ! package.json -nt node_modules/.yarn-integrity ]
+  ' >/dev/null 2>&1
 }
 
 # ----- commands -----
