@@ -12,9 +12,14 @@ interface TypingIndicatorProps {
 
 const MAX_NAMES_INLINE = 2;
 
+// Stable empty-array reference. `?? []` inside the Zustand selector would
+// allocate a fresh array on every render, breaking useSyncExternalStore's
+// snapshot equality check and causing an infinite render loop.
+const EMPTY_TYPING_IDS: readonly string[] = [];
+
 export function TypingIndicator({ channelId, members, className }: TypingIndicatorProps) {
   const me = useAuthStore((s) => s.user);
-  const typingIds = useTypingStore((s) => s.byChannel[channelId] ?? []);
+  const typingIds = useTypingStore((s) => s.byChannel[channelId] ?? EMPTY_TYPING_IDS);
 
   const typingNames = useMemo(() => {
     return typingIds

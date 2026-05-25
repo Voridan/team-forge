@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Team, TeamRole } from '../../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DEFAULT_ANALYTICS_THRESHOLDS } from '../analytics-settings/analytics-thresholds.constants';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 
@@ -39,6 +40,9 @@ export class TeamsService {
         description: dto.description,
         members: {
           create: { userId: creatorId, role: TeamRole.OWNER },
+        },
+        analyticsSettings: {
+          create: { ...DEFAULT_ANALYTICS_THRESHOLDS },
         },
       },
     });

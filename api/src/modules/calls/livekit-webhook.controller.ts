@@ -8,7 +8,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { CallsPublisher } from './calls.publisher';
 import { CallsService, parseRoomName } from './calls.service';
 import { LivekitService } from './livekit.service';

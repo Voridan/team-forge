@@ -24,6 +24,9 @@ type MockPrisma = {
     update: jest.Mock;
     delete: jest.Mock;
   };
+  taskStatusHistory: {
+    create: jest.Mock;
+  };
   teamMember: {
     findUnique: jest.Mock;
   };
@@ -48,6 +51,9 @@ function makeMockPrisma(): MockPrisma {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+    },
+    taskStatusHistory: {
+      create: jest.fn(),
     },
     teamMember: {
       findUnique: jest.fn(),
@@ -89,9 +95,11 @@ describe('TasksService', () => {
   });
 
   describe('create', () => {
-    it('creates a task with reporter set to the creator and computes next position', async () => {
+    it('creates a task with reporter set to the creator and records the initial status transition', async () => {
       prisma.task.findFirst.mockResolvedValue({ position: 4 });
       prisma.task.create.mockResolvedValue({ ...baseTask, position: 5 });
+      // The interactive transaction passes a tx client; here we hand back the same mock.
+      prisma.$transaction.mockImplementation(async (cb: (tx: MockPrisma) => unknown) => cb(prisma));
 
       await service.create(TEAM_ID, ALICE, { title: 'New task' });
 
@@ -109,6 +117,15 @@ describe('TasksService', () => {
           priority: TaskPriority.MEDIUM,
           position: 5,
         }),
+      });
+      expect(prisma.taskStatusHistory.create).toHaveBeenCalledWith({
+        data: {
+          taskId: TASK_ID,
+          teamId: TEAM_ID,
+          fromStatus: null,
+          toStatus: TaskStatus.TODO,
+          changedByUserId: ALICE,
+        },
       });
     });
 
@@ -180,13 +197,17 @@ describe('TasksService', () => {
   });
 
   describe('update (no move)', () => {
-    it('updates non-positional fields via plain task.update', async () => {
+    it('updates non-positional fields via plain task.update and does not record history', async () => {
       prisma.task.findFirst.mockResolvedValue(baseTask);
       prisma.task.update.mockResolvedValue({ ...baseTask, title: 'New title' });
 
-      await service.update(TEAM_ID, TASK_ID, { title: 'New title', priority: TaskPriority.HIGH });
+      await service.update(TEAM_ID, TASK_ID, ALICE, {
+        title: 'New title',
+        priority: TaskPriority.HIGH,
+      });
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.taskStatusHistory.create).not.toHaveBeenCalled();
       expect(prisma.task.update).toHaveBeenCalledWith({
         where: { id: TASK_ID },
         data: expect.objectContaining({ title: 'New title', priority: TaskPriority.HIGH }),
@@ -195,25 +216,48 @@ describe('TasksService', () => {
   });
 
   describe('update (move)', () => {
-    it('compacts the source column and inserts at the target position on cross-column move', async () => {
+    it('compacts the source column, records the transition, and inserts at the target position on cross-column move', async () => {
       prisma.task.findFirst.mockResolvedValue({ ...baseTask, status: TaskStatus.TODO, position: 2 });
       prisma.task.count.mockResolvedValue(3);
-      prisma.$transaction.mockResolvedValue([{}, {}, { ...baseTask, status: TaskStatus.IN_PROGRESS, position: 1 }]);
+      // 4 ops on cross-column move: compactSource, historyInsert, makeRoomInDestination, moveTask
+      prisma.$transaction.mockResolvedValue([{}, {}, {}, { ...baseTask, status: TaskStatus.IN_PROGRESS, position: 1 }]);
 
-      await service.update(TEAM_ID, TASK_ID, { status: TaskStatus.IN_PROGRESS, position: 1 });
+      await service.update(TEAM_ID, TASK_ID, ALICE, { status: TaskStatus.IN_PROGRESS, position: 1 });
 
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       const ops = prisma.$transaction.mock.calls[0][0];
-      expect(ops).toHaveLength(3);
+      expect(ops).toHaveLength(4);
+      expect(prisma.taskStatusHistory.create).toHaveBeenCalledWith({
+        data: {
+          taskId: TASK_ID,
+          teamId: TEAM_ID,
+          fromStatus: TaskStatus.TODO,
+          toStatus: TaskStatus.IN_PROGRESS,
+          changedByUserId: ALICE,
+        },
+      });
+    });
+
+    it('does not record history when only position changes within the same column', async () => {
+      prisma.task.findFirst.mockResolvedValue({ ...baseTask, status: TaskStatus.TODO, position: 0 });
+      prisma.task.count.mockResolvedValue(2);
+      // 2 ops on same-column move: makeRoomInDestination, moveTask
+      prisma.$transaction.mockResolvedValue([{}, { ...baseTask, position: 1 }]);
+
+      await service.update(TEAM_ID, TASK_ID, ALICE, { position: 1 });
+
+      expect(prisma.taskStatusHistory.create).not.toHaveBeenCalled();
+      const ops = prisma.$transaction.mock.calls[0][0];
+      expect(ops).toHaveLength(2);
     });
 
     it('caps requested position at the column size when moving across columns', async () => {
       prisma.task.findFirst.mockResolvedValue({ ...baseTask, status: TaskStatus.TODO, position: 0 });
       // Destination column has 2 other tasks
       prisma.task.count.mockResolvedValue(2);
-      prisma.$transaction.mockResolvedValue([{}, {}, { ...baseTask, status: TaskStatus.DONE, position: 2 }]);
+      prisma.$transaction.mockResolvedValue([{}, {}, {}, { ...baseTask, status: TaskStatus.DONE, position: 2 }]);
 
-      await service.update(TEAM_ID, TASK_ID, { status: TaskStatus.DONE, position: 999 });
+      await service.update(TEAM_ID, TASK_ID, ALICE, { status: TaskStatus.DONE, position: 999 });
 
       expect(prisma.task.count).toHaveBeenCalledWith({
         where: { teamId: TEAM_ID, status: TaskStatus.DONE, id: { not: TASK_ID } },
@@ -223,9 +267,9 @@ describe('TasksService', () => {
     it('appends to destination when position is unspecified', async () => {
       prisma.task.findFirst.mockResolvedValue({ ...baseTask, status: TaskStatus.TODO, position: 0 });
       prisma.task.count.mockResolvedValue(2);
-      prisma.$transaction.mockResolvedValue([{}, {}, { ...baseTask, status: TaskStatus.DONE, position: 2 }]);
+      prisma.$transaction.mockResolvedValue([{}, {}, {}, { ...baseTask, status: TaskStatus.DONE, position: 2 }]);
 
-      await service.update(TEAM_ID, TASK_ID, { status: TaskStatus.DONE });
+      await service.update(TEAM_ID, TASK_ID, ALICE, { status: TaskStatus.DONE });
 
       // We only check count was called (resolving the append target)
       expect(prisma.task.count).toHaveBeenCalled();
@@ -236,7 +280,7 @@ describe('TasksService', () => {
       prisma.teamMember.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update(TEAM_ID, TASK_ID, { assigneeUserId: BOB }),
+        service.update(TEAM_ID, TASK_ID, ALICE, { assigneeUserId: BOB }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

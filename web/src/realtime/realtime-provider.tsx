@@ -171,14 +171,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       socket.off('connect_error');
       socket.io.off('reconnect');
     };
+    // No disconnect-on-unmount effect: in React StrictMode dev double-mount,
+    // calling disconnectSocket() in cleanup aborts the in-flight WS handshake
+    // from the first mount, producing "WebSocket closed before connection
+    // established" on every page load. The accessToken branch above handles
+    // logout; tab-close is handled by the browser.
   }, [accessToken, qc]);
-
-  // Final cleanup on app unmount (rare in SPAs but keeps tests sane).
-  useEffect(() => {
-    return () => {
-      disconnectSocket();
-    };
-  }, []);
 
   return <>{children}</>;
 }

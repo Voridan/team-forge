@@ -31,7 +31,10 @@ export interface CallHistoryPage {
   nextCursor: string | null;
 }
 
-const callWithRelations = Prisma.validator<Prisma.CallDefaultArgs>()({
+// The new `prisma-client` generator (Prisma 7+) doesn't expose `Prisma.validator`,
+// so use `satisfies` to type-check the literal while preserving its narrow shape
+// for `Prisma.CallGetPayload`.
+const callWithRelations = {
   include: {
     startedBy: {
       include: {
@@ -53,7 +56,7 @@ const callWithRelations = Prisma.validator<Prisma.CallDefaultArgs>()({
       orderBy: { joinedAt: 'asc' },
     },
   },
-});
+} satisfies Prisma.CallDefaultArgs;
 
 type CallWithRelations = Prisma.CallGetPayload<typeof callWithRelations>;
 

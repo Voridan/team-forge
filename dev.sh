@@ -4,15 +4,16 @@
 # Usage: ./dev.sh [command]
 #
 # Commands:
-#   up       (default) Start postgres, redis, minio, api; run migrations + ensure bucket
-#   down     Stop all services (volumes preserved)
-#   reset    Stop + wipe volumes (destroys DB and MinIO files), then 'up' + seed
-#   migrate  Run prisma migrate dev (with prompt if a new migration is needed)
-#   seed     Run prisma db seed
-#   logs     Tail the api container logs
-#   shell    Open a shell inside the api container
-#   status   Show docker compose ps
-#   help     Show this message
+#   up                  (default) Start postgres, redis, minio, api, realtime, analytics, livekit, nginx;
+#                       run migrations + ensure bucket
+#   down                Stop all services (volumes preserved)
+#   reset               Stop + wipe volumes (destroys DB and MinIO files), then 'up' + seed
+#   migrate [name]      Run prisma migrate dev (with prompt if a new migration is needed)
+#   seed                Run prisma db seed
+#   logs [service]      Tail container logs (default: api). Examples: logs analytics, logs nginx
+#   shell [service]     Open a shell inside a container (default: api). Examples: shell analytics
+#   status              Show docker compose ps
+#   help                Show this message
 
 set -euo pipefail
 
@@ -117,8 +118,8 @@ cmd_up() {
   wait_for_healthy redis
   wait_for_healthy minio
 
-  log "Bringing up api + realtime…"
-  docker compose up -d api realtime
+  log "Bringing up api, realtime, analytics, livekit, nginx…"
+  docker compose up -d api realtime analytics livekit nginx
 
   api_yarn_install_if_needed
   realtime_yarn_install_if_needed
@@ -129,13 +130,15 @@ cmd_up() {
 
   ok "Stack is up."
   echo
-  echo "${DIM}  api      → http://localhost:3000${RESET}"
-  echo "${DIM}  realtime → http://localhost:3001${RESET}"
-  echo "${DIM}  minio    → http://localhost:9001 (console)${RESET}"
-  echo "${DIM}  postgres → localhost:5432${RESET}"
+  echo "${DIM}  nginx     → http://localhost          (routes /api/, /ws/, /analytics/)${RESET}"
+  echo "${DIM}  api       → http://localhost:3000     (direct, dev only)${RESET}"
+  echo "${DIM}  realtime  → http://localhost:3001     (direct, dev only)${RESET}"
+  echo "${DIM}  analytics → http://localhost/analytics/docs  (via nginx; no direct port)${RESET}"
+  echo "${DIM}  minio     → http://localhost:9001     (console)${RESET}"
+  echo "${DIM}  postgres  → localhost:5432${RESET}"
   echo
   echo "Next: ${BLUE}cd web && npm run dev${RESET} for the frontend"
-  echo "Stream api logs: ${BLUE}./dev.sh logs${RESET}"
+  echo "Stream api logs: ${BLUE}./dev.sh logs${RESET}     (or ./dev.sh logs analytics, etc.)"
 }
 
 cmd_down() {
@@ -181,12 +184,14 @@ cmd_seed() {
 
 cmd_logs() {
   require_docker
-  docker compose logs -f api
+  local service="${1:-api}"
+  docker compose logs -f "$service"
 }
 
 cmd_shell() {
   require_docker
-  docker compose exec api sh
+  local service="${1:-api}"
+  docker compose exec "$service" sh
 }
 
 cmd_status() {
@@ -206,8 +211,8 @@ case "${1:-up}" in
   reset)   cmd_reset   ;;
   migrate) shift; cmd_migrate "$@" ;;
   seed)    cmd_seed    ;;
-  logs)    cmd_logs    ;;
-  shell)   cmd_shell   ;;
+  logs)    shift; cmd_logs "$@" ;;
+  shell)   shift; cmd_shell "$@" ;;
   status)  cmd_status  ;;
   help|-h|--help) cmd_help ;;
   *)

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env.validation';
+import { AnalyticsSettingsModule } from './modules/analytics-settings/analytics-settings.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
@@ -30,6 +31,7 @@ import { PrismaModule } from './prisma/prisma.module';
     InvitationsModule,
     MessagingModule,
     CallsModule,
+    AnalyticsSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

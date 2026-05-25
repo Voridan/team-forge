@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { TeamRole } from '../../../generated/prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { AuthenticatedUser } from '../auth/types/auth.types';
+import type { AuthenticatedUser } from '../auth/types/auth.types';
 import { RequireRole } from '../teams/decorators/require-role.decorator';
 import { TeamRoleGuard } from '../teams/guards/team-role.guard';
 import { CallsService } from './calls.service';

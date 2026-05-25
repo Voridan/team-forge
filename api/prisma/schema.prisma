@@ -98,11 +98,12 @@ model Team {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  members     TeamMember[]
-  tasks       Task[]
-  invitations TeamInvitation[]
-  channels    Channel[]
-  calls       Call[]
+  members           TeamMember[]
+  tasks             Task[]
+  invitations       TeamInvitation[]
+  channels          Channel[]
+  calls             Call[]
+  analyticsSettings TeamAnalyticsSettings?
 
   @@map("teams")
 }
@@ -116,14 +117,15 @@ model TeamMember {
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tasksAssigned      Task[]            @relation("TaskAssignee")
-  tasksReported      Task[]            @relation("TaskReporter")
-  taskComments       TaskComment[]
-  invitationsSent    TeamInvitation[]
-  messages           Message[]
-  attachments        Attachment[]
-  callsStarted       Call[]
-  callParticipations CallParticipant[]
+  tasksAssigned       Task[]              @relation("TaskAssignee")
+  tasksReported       Task[]              @relation("TaskReporter")
+  taskComments        TaskComment[]
+  taskStatusChanges   TaskStatusHistory[]
+  invitationsSent     TeamInvitation[]
+  messages            Message[]
+  attachments         Attachment[]
+  callsStarted        Call[]
+  callParticipations  CallParticipant[]
 
   @@id([teamId, userId])
   @@index([userId])
@@ -162,18 +164,56 @@ model Task {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  team       Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  assignee   TeamMember?   @relation("TaskAssignee", fields: [teamId, assigneeUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
-  reporter   TeamMember?   @relation("TaskReporter", fields: [teamId, reporterUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
-  parentTask Task?         @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subtasks   Task[]        @relation("Subtasks")
-  comments   TaskComment[]
+  team          Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignee      TeamMember?         @relation("TaskAssignee", fields: [teamId, assigneeUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+  reporter      TeamMember?         @relation("TaskReporter", fields: [teamId, reporterUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+  parentTask    Task?               @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks      Task[]              @relation("Subtasks")
+  comments      TaskComment[]
+  statusHistory TaskStatusHistory[]
 
   @@index([teamId, status, position])
   @@index([teamId, assigneeUserId])
   @@index([teamId, createdAt])
   @@index([parentTaskId])
   @@map("tasks")
+}
+
+model TaskStatusHistory {
+  id              String      @id @default(uuid()) @db.Uuid
+  taskId          String      @map("task_id") @db.Uuid
+  teamId          String      @map("team_id") @db.Uuid
+  fromStatus      TaskStatus? @map("from_status")
+  toStatus        TaskStatus  @map("to_status")
+  changedByUserId String?     @map("changed_by_user_id") @db.Uuid
+  changedAt       DateTime    @default(now()) @map("changed_at")
+
+  task      Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  changedBy TeamMember? @relation(fields: [teamId, changedByUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([taskId, changedAt])
+  @@index([teamId, toStatus, changedAt])
+  @@map("task_status_history")
+}
+
+model TeamAnalyticsSettings {
+  teamId String @id @map("team_id") @db.Uuid
+
+  workloadMaxMedianWarn Float @map("workload_max_median_warn")
+  workloadMaxMedianCrit Float @map("workload_max_median_crit")
+  reviewP75DaysWarn     Float @map("review_p75_days_warn")
+  reviewP75DaysCrit     Float @map("review_p75_days_crit")
+  throughputDropPctWarn Float @map("throughput_drop_pct_warn")
+  throughputDropPctCrit Float @map("throughput_drop_pct_crit")
+  overdueCountWarn      Int   @map("overdue_count_warn")
+  overdueCountCrit      Int   @map("overdue_count_crit")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("team_analytics_settings")
 }
 
 model TaskComment {

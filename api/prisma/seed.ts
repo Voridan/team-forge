@@ -2,6 +2,7 @@ import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { AuthProvider, PrismaClient } from '../generated/prisma/client';
+import { DEFAULT_ANALYTICS_THRESHOLDS } from '../src/modules/analytics-settings/analytics-thresholds.constants';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -65,8 +66,18 @@ async function main() {
           { userId: charlie.id, role: 'MEMBER' },
         ],
       },
+      analyticsSettings: {
+        create: { ...DEFAULT_ANALYTICS_THRESHOLDS },
+      },
     },
     include: { members: true },
+  });
+
+  // Backfill analytics settings for teams that pre-date the analytics module.
+  await prisma.teamAnalyticsSettings.upsert({
+    where: { teamId: team.id },
+    update: {},
+    create: { teamId: team.id, ...DEFAULT_ANALYTICS_THRESHOLDS },
   });
 
   console.log(`Team: ${team.name} (${team.members.length} members)`);

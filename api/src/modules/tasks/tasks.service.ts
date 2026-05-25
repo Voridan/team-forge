@@ -33,20 +33,32 @@ export class TasksService {
     const status = dto.status ?? TaskStatus.TODO;
     const position = await this.nextPosition(teamId, status);
 
-    return this.prisma.task.create({
-      data: {
-        teamId,
-        title: dto.title,
-        description: dto.description,
-        priority: dto.priority ?? TaskPriority.MEDIUM,
-        status,
-        assigneeUserId: dto.assigneeUserId,
-        reporterUserId: requesterId,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-        labels: dto.labels ?? [],
-        parentTaskId: dto.parentTaskId,
-        position,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const task = await tx.task.create({
+        data: {
+          teamId,
+          title: dto.title,
+          description: dto.description,
+          priority: dto.priority ?? TaskPriority.MEDIUM,
+          status,
+          assigneeUserId: dto.assigneeUserId,
+          reporterUserId: requesterId,
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+          labels: dto.labels ?? [],
+          parentTaskId: dto.parentTaskId,
+          position,
+        },
+      });
+      await tx.taskStatusHistory.create({
+        data: {
+          taskId: task.id,
+          teamId,
+          fromStatus: null,
+          toStatus: task.status,
+          changedByUserId: requesterId,
+        },
+      });
+      return task;
     });
   }
 
@@ -79,7 +91,12 @@ export class TasksService {
     return task;
   }
 
-  async update(teamId: string, taskId: string, dto: UpdateTaskDto): Promise<Task> {
+  async update(
+    teamId: string,
+    taskId: string,
+    requesterId: string,
+    dto: UpdateTaskDto,
+  ): Promise<Task> {
     const existing = await this.getById(teamId, taskId);
 
     if (dto.assigneeUserId) {
@@ -90,7 +107,7 @@ export class TasksService {
     const movingPosition = dto.position !== undefined && dto.position !== existing.position;
 
     if (movingStatus || movingPosition) {
-      return this.moveTask(existing, dto.status ?? existing.status, dto.position, dto);
+      return this.moveTask(existing, dto.status ?? existing.status, dto.position, requesterId, dto);
     }
 
     return this.prisma.task.update({
@@ -220,18 +237,28 @@ export class TasksService {
     existing: Task,
     newStatus: TaskStatus,
     requestedPosition: number | undefined,
+    requesterId: string,
     dto: UpdateTaskDto,
   ): Promise<Task> {
     const { teamId, id, status: oldStatus, position: oldPosition } = existing;
 
     const ops: Prisma.PrismaPromise<unknown>[] = [];
 
-    // If status changes, compact the source column.
+    // If status changes, compact the source column and record the transition.
     if (newStatus !== oldStatus) {
       ops.push(
         this.prisma.task.updateMany({
           where: { teamId, status: oldStatus, position: { gt: oldPosition } },
           data: { position: { decrement: 1 } },
+        }),
+        this.prisma.taskStatusHistory.create({
+          data: {
+            taskId: id,
+            teamId,
+            fromStatus: oldStatus,
+            toStatus: newStatus,
+            changedByUserId: requesterId,
+          },
         }),
       );
     }

@@ -71,9 +71,10 @@ export class TasksController {
   update(
     @Param('teamId', new ParseUUIDPipe()) teamId: string,
     @Param('taskId', new ParseUUIDPipe()) taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateTaskDto,
   ) {
-    return this.tasksService.update(teamId, taskId, dto);
+    return this.tasksService.update(teamId, taskId, user.id, dto);
   }
 
   @Delete(':taskId')

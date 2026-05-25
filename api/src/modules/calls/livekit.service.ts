@@ -44,6 +44,7 @@ export class LivekitService {
   }
 
   verifyWebhook(rawBody: string | Buffer, authHeader: string): Promise<WebhookEvent> {
-    return this.receiver.receive(rawBody, authHeader);
+    const body = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf-8');
+    return this.receiver.receive(body, authHeader);
   }
 }
