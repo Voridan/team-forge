@@ -1,6 +1,8 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/components/app/sidebar';
 import { TopBar } from '@/components/app/top-bar';
+import { InCallModal } from '@/features/calls/in-call-modal';
+import { IncomingCallToast } from '@/features/calls/incoming-call-toast';
 
 export function AppLayout() {
   return (
@@ -12,6 +14,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <IncomingCallToast />
+      <InCallModal />
     </div>
   );
 }

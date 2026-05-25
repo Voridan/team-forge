@@ -231,6 +231,16 @@ export class TeamsService {
         where: { teamId, uploaderUserId: userId },
         data: { uploaderUserId: null },
       }),
+      this.prisma.call.updateMany({
+        where: { teamId, startedByUserId: userId },
+        data: { startedByUserId: null },
+      }),
+      // CallParticipant.userId is a hard FK with no nullable counterpart, so
+      // we drop the rows. Call history (start/end/duration) is preserved on
+      // the Call row itself.
+      this.prisma.callParticipant.deleteMany({
+        where: { teamId, userId },
+      }),
       this.prisma.teamMember.delete({
         where: { teamId_userId: { teamId, userId } },
       }),

@@ -89,6 +89,19 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   MAIL_FROM?: string;
+
+  @IsString()
+  LIVEKIT_API_KEY!: string;
+
+  @IsString()
+  LIVEKIT_API_SECRET!: string;
+
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+    protocols: ['ws', 'wss'],
+  })
+  LIVEKIT_URL!: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

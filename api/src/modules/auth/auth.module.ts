@@ -39,6 +39,7 @@ export class AuthModule implements NestModule {
         { path: 'auth/login', method: RequestMethod.POST },
         { path: 'auth/refresh', method: RequestMethod.POST },
         { path: 'auth/oauth/*provider', method: RequestMethod.POST },
+        { path: 'internal/livekit/webhook', method: RequestMethod.POST },
       )
       .forRoutes('*path');
   }

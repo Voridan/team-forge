@@ -6,6 +6,7 @@ import { attachChatGateway } from './gateway/chat.gateway';
 import { attachPresenceGateway } from './gateway/presence.gateway';
 import { attachTypingGateway } from './gateway/typing.gateway';
 import { attachRedisAdapter } from './redis/redis-adapter';
+import { startCallsSubscriber } from './redis/calls-subscriber';
 import { startMessagingSubscriber } from './redis/messaging-subscriber';
 import { attachSocketRateLimiter } from './rate-limit/socket-rate-limiter';
 
@@ -57,6 +58,7 @@ const io = new Server(httpServer, {
 
 const redisAdapter = attachRedisAdapter(io, REDIS_URL);
 const subscriber = startMessagingSubscriber(io, REDIS_URL, log);
+const callsSubscriber = startCallsSubscriber(io, REDIS_URL, log);
 const rateLimiter = attachSocketRateLimiter(REDIS_URL);
 
 io.use(jwtHandshake(JWT_SECRET));
@@ -87,6 +89,7 @@ const shutdown = async (signal: string) => {
   log(`received ${signal}, shutting down…`);
   await Promise.allSettled([
     subscriber.close(),
+    callsSubscriber.close(),
     redisAdapter.close(),
     rateLimiter.close(),
     new Promise<void>((resolve) => io.close(() => resolve())),

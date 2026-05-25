@@ -189,3 +189,46 @@ export interface DownloadInfo {
   mimeType: string;
   sizeBytes: number;
 }
+
+export interface CallParticipantSummary {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  joinedAt: string;
+}
+
+export interface CallStarter {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+}
+
+export interface ActiveCallView {
+  callId: string;
+  roomName: string;
+  startedAt: string;
+  startedBy: CallStarter | null;
+  participants: CallParticipantSummary[];
+}
+
+export interface CallTokenView extends ActiveCallView {
+  livekitUrl: string;
+  token: string;
+}
+
+export interface CallHistoryItem {
+  callId: string;
+  roomName: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationSec: number | null;
+  startedBy: CallStarter | null;
+  participantCount: number;
+}
+
+export interface CallHistoryPage {
+  items: CallHistoryItem[];
+  nextCursor: string | null;
+}

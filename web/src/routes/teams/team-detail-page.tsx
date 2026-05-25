@@ -41,6 +41,7 @@ import { RoleBadge } from "@/features/teams/role-badge";
 import { TasksBoard } from "@/features/tasks/tasks-board";
 import { InviteByEmailDialog } from "@/features/invitations/invite-by-email-dialog";
 import { PendingInvitations } from "@/features/invitations/pending-invitations";
+import { CallButton } from "@/features/calls/call-button";
 import { ChannelList } from "@/features/messaging/channel-list";
 import { ChatView } from "@/features/messaging/chat-view";
 import { useChannelsQuery } from "@/features/messaging/queries";
@@ -127,16 +128,19 @@ function TeamDetail({ teamId }: { teamId: string }) {
           ) : null}
         </div>
 
-        <TeamMenu
-          canDelete={canDeleteTeam}
-          canLeave={!!myMembership}
-          isLastOwner={
-            myRole === "OWNER" &&
-            (members?.filter((m) => m.role === "OWNER").length ?? 0) <= 1
-          }
-          onDelete={() => navigate("/teams")}
-          teamId={teamId}
-        />
+        <div className="flex items-center gap-2">
+          {myMembership && <CallButton teamId={teamId} />}
+          <TeamMenu
+            canDelete={canDeleteTeam}
+            canLeave={!!myMembership}
+            isLastOwner={
+              myRole === "OWNER" &&
+              (members?.filter((m) => m.role === "OWNER").length ?? 0) <= 1
+            }
+            onDelete={() => navigate("/teams")}
+            teamId={teamId}
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="board">

@@ -36,7 +36,20 @@ async function main() {
     },
   });
 
-  console.log(`Users: ${alice.email}, ${bob.email}`);
+  // Second LOCAL user — used by the two-window E2E chat test.
+  const charlie = await prisma.user.upsert({
+    where: { email: 'charlie@example.com' },
+    update: {},
+    create: {
+      email: 'charlie@example.com',
+      firstName: 'Charlie',
+      lastName: 'Local',
+      authProvider: 'LOCAL',
+      passwordHash: localPasswordHash,
+    },
+  });
+
+  console.log(`Users: ${alice.email}, ${bob.email}, ${charlie.email}`);
 
   const team = await prisma.team.upsert({
     where: { id: '00000000-0000-0000-0000-000000000001' },
@@ -49,6 +62,7 @@ async function main() {
         create: [
           { userId: alice.id, role: 'OWNER' },
           { userId: bob.id, role: 'MEMBER' },
+          { userId: charlie.id, role: 'MEMBER' },
         ],
       },
     },

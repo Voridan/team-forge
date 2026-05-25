@@ -2,6 +2,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/auth';
+import { callsKeys } from '@/features/calls/queries';
+import { useActiveCallStore } from '@/features/calls/active-call-store';
+import { useIncomingCallStore } from '@/features/calls/incoming-call-store';
 import { messagingKeys } from '@/features/messaging/queries';
 import {
   applyMessageCreated,
@@ -28,6 +31,23 @@ interface TypingUpdatePayload {
 interface PresenceUpdatePayload {
   userId: string;
   status: PresenceStatus;
+}
+
+interface CallIncomingPayload {
+  teamId: string;
+  callId: string;
+  callerId: string;
+}
+
+interface CallEndedPayload {
+  teamId: string;
+  callId: string;
+  durationSec: number;
+}
+
+interface CallParticipantPayload {
+  teamId: string;
+  callId: string;
 }
 
 /**
@@ -98,6 +118,31 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       usePresenceStore.getState().setStatus(event.userId, event.status);
     });
 
+    socket.on('call:incoming', (event: CallIncomingPayload) => {
+      const me = useAuthStore.getState().user;
+      // Don't notify the caller about their own call.
+      if (me && me.id === event.callerId) return;
+      useIncomingCallStore.getState().show(event);
+      qc.invalidateQueries({ queryKey: callsKeys.active(event.teamId) });
+    });
+
+    socket.on('call:participant-joined', (event: CallParticipantPayload) => {
+      qc.invalidateQueries({ queryKey: callsKeys.active(event.teamId) });
+    });
+
+    socket.on('call:participant-left', (event: CallParticipantPayload) => {
+      qc.invalidateQueries({ queryKey: callsKeys.active(event.teamId) });
+    });
+
+    socket.on('call:ended', (event: CallEndedPayload) => {
+      qc.invalidateQueries({ queryKey: callsKeys.active(event.teamId) });
+      useIncomingCallStore.getState().dismiss();
+      const session = useActiveCallStore.getState().session;
+      if (session?.callId === event.callId) {
+        useActiveCallStore.getState().exit();
+      }
+    });
+
     socket.io.on('reconnect', () => {
       // Refetch all messages queries to fill any gap during the disconnect.
       qc.invalidateQueries({
@@ -119,6 +164,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       socket.off('message:deleted');
       socket.off('typing:update');
       socket.off('presence:changed');
+      socket.off('call:incoming');
+      socket.off('call:participant-joined');
+      socket.off('call:participant-left');
+      socket.off('call:ended');
       socket.off('connect_error');
       socket.io.off('reconnect');
     };

@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
+import { CallsModule } from './modules/calls/calls.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { MailModule } from './modules/mail/mail.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
@@ -28,6 +29,7 @@ import { PrismaModule } from './prisma/prisma.module';
     TasksModule,
     InvitationsModule,
     MessagingModule,
+    CallsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

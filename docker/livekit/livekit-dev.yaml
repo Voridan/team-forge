@@ -8,5 +8,9 @@ turn:
   udp_port: 3478
 keys:
   devkey: secret-change-in-production
+webhook:
+  api_key: devkey
+  urls:
+    - http://api:3000/api/v1/internal/livekit/webhook
 logging:
   level: info

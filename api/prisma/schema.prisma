@@ -64,6 +64,11 @@ enum AttachmentStatus {
   LINKED
 }
 
+enum CallStatus {
+  ACTIVE
+  ENDED
+}
+
 model User {
   id           String       @id @default(uuid()) @db.Uuid
   email        String       @unique
@@ -97,6 +102,7 @@ model Team {
   tasks       Task[]
   invitations TeamInvitation[]
   channels    Channel[]
+  calls       Call[]
 
   @@map("teams")
 }
@@ -110,12 +116,14 @@ model TeamMember {
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tasksAssigned    Task[]           @relation("TaskAssignee")
-  tasksReported    Task[]           @relation("TaskReporter")
-  taskComments     TaskComment[]
-  invitationsSent  TeamInvitation[]
-  messages         Message[]
-  attachments      Attachment[]
+  tasksAssigned      Task[]            @relation("TaskAssignee")
+  tasksReported      Task[]            @relation("TaskReporter")
+  taskComments       TaskComment[]
+  invitationsSent    TeamInvitation[]
+  messages           Message[]
+  attachments        Attachment[]
+  callsStarted       Call[]
+  callParticipations CallParticipant[]
 
   @@id([teamId, userId])
   @@index([userId])
@@ -263,4 +271,38 @@ model Attachment {
   @@index([linkedMessageId])
   @@index([teamId, uploaderUserId])
   @@map("attachments")
+}
+
+model Call {
+  id              String     @id @default(uuid()) @db.Uuid
+  teamId          String     @map("team_id") @db.Uuid
+  status          CallStatus @default(ACTIVE)
+  roomName        String     @unique @map("room_name")
+  startedByUserId String?    @map("started_by_user_id") @db.Uuid
+  startedAt       DateTime   @default(now()) @map("started_at")
+  endedAt         DateTime?  @map("ended_at")
+  durationSec     Int?       @map("duration_sec")
+
+  team         Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  startedBy    TeamMember?       @relation(fields: [teamId, startedByUserId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+  participants CallParticipant[]
+
+  @@index([teamId, status])
+  @@index([teamId, startedAt])
+  @@map("calls")
+}
+
+model CallParticipant {
+  callId   String    @map("call_id") @db.Uuid
+  teamId   String    @map("team_id") @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  joinedAt DateTime  @default(now()) @map("joined_at")
+  leftAt   DateTime? @map("left_at")
+
+  call   Call       @relation(fields: [callId], references: [id], onDelete: Cascade)
+  member TeamMember @relation(fields: [teamId, userId], references: [teamId, userId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([callId, userId])
+  @@index([teamId, userId])
+  @@map("call_participants")
 }
