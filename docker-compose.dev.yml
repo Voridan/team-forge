@@ -78,9 +78,10 @@ services:
       target: development
     volumes:
       - ./analytics/app:/app/app
-    # No public port mapping — only Nginx reaches this service over the internal network.
-    expose:
-      - "8000"
+    # Exposed on host in dev to mirror api/realtime — Vite proxies /analytics here.
+    # Production keeps the service internal-only via prod compose (no host port).
+    ports:
+      - "8000:8000"
     environment:
       ENVIRONMENT: development
       DATABASE_URL: ${DATABASE_URL}

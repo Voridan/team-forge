@@ -1,6 +1,8 @@
 import type { ApiEnvelope, ProblemDetails } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+const ANALYTICS_BASE_URL =
+  import.meta.env.VITE_ANALYTICS_BASE_URL || "/analytics/v1";
 
 export class ApiError extends Error {
   public readonly problem: ProblemDetails;
@@ -21,6 +23,8 @@ export class ApiError extends Error {
 interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   auth?: boolean;
+  /** Override the prefix prepended to `path` (defaults to API_BASE_URL). */
+  baseUrl?: string;
 }
 
 interface AuthHandlers {
@@ -50,7 +54,13 @@ export async function apiFetch<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, auth = true, headers: rawHeaders, ...rest } = options;
+  const {
+    body,
+    auth = true,
+    baseUrl = API_BASE_URL,
+    headers: rawHeaders,
+    ...rest
+  } = options;
   const headers = new Headers(rawHeaders);
 
   if (body !== undefined) {
@@ -62,7 +72,7 @@ export async function apiFetch<T>(
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const url = `${API_BASE_URL}${path}`;
+  const url = `${baseUrl}${path}`;
   const requestInit: RequestInit = {
     ...rest,
     headers,
@@ -104,6 +114,17 @@ function unwrapEnvelope<T>(json: ApiEnvelope<T> | T): T {
     return (json as ApiEnvelope<T>).data;
   }
   return json as T;
+}
+
+/**
+ * Convenience wrapper for the analytics service (different URL prefix and
+ * separate FastAPI host behind Nginx — same JWT/auth flow).
+ */
+export function analyticsFetch<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  return apiFetch<T>(path, { ...options, baseUrl: ANALYTICS_BASE_URL });
 }
 
 async function toApiError(response: Response): Promise<ApiError> {

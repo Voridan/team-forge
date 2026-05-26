@@ -38,6 +38,7 @@ import {
 } from "@/features/teams/queries";
 import { AddMembersDialog } from "@/features/teams/add-members-dialog";
 import { RoleBadge } from "@/features/teams/role-badge";
+import { AnalyticsTab } from "@/features/analytics/components/analytics-tab";
 import { TasksBoard } from "@/features/tasks/tasks-board";
 import { InviteByEmailDialog } from "@/features/invitations/invite-by-email-dialog";
 import { PendingInvitations } from "@/features/invitations/pending-invitations";
@@ -162,6 +163,9 @@ function TeamDetail({ teamId }: { teamId: string }) {
               </span>
             )}
           </TabsTrigger>
+          {canAddMembers && (
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="chat">
@@ -244,6 +248,12 @@ function TeamDetail({ teamId }: { teamId: string }) {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {canAddMembers && (
+          <TabsContent value="analytics" className="space-y-4">
+            <AnalyticsTab teamId={teamId} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { AuthProvider, PrismaClient } from '../generated/prisma/client';
 import { DEFAULT_ANALYTICS_THRESHOLDS } from '../src/modules/analytics-settings/analytics-thresholds.constants';
+import { seedDemo } from './demo-seed';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -81,6 +82,11 @@ async function main() {
   });
 
   console.log(`Team: ${team.name} (${team.members.length} members)`);
+
+  // Demo seed for the analytics module — runs only if the demo user exists.
+  // Safe to leave on: if the user isn't present, it logs and returns.
+  await seedDemo(prisma, localPasswordHash);
+
   console.log('Seeding complete.');
 }
 
