@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { TeamRole } from '../../../generated/prisma/client';
+import { DEFAULT_ANALYTICS_THRESHOLDS } from '../analytics-settings/analytics-thresholds.constants';
 import { TeamsService } from './teams.service';
 
 type MockPrisma = {
@@ -19,6 +20,12 @@ type MockPrisma = {
   task: { updateMany: jest.Mock };
   taskComment: { updateMany: jest.Mock };
   teamInvitation: { updateMany: jest.Mock };
+  // Added when messaging/attachments/calls were introduced — detachAndDelete
+  // touches all of these as part of removing a member.
+  message: { updateMany: jest.Mock };
+  attachment: { updateMany: jest.Mock };
+  call: { updateMany: jest.Mock };
+  callParticipant: { deleteMany: jest.Mock };
   user: { findMany: jest.Mock };
   $transaction: jest.Mock;
 };
@@ -42,6 +49,10 @@ function makeMockPrisma(): MockPrisma {
     task: { updateMany: jest.fn() },
     taskComment: { updateMany: jest.fn() },
     teamInvitation: { updateMany: jest.fn() },
+    message: { updateMany: jest.fn() },
+    attachment: { updateMany: jest.fn() },
+    call: { updateMany: jest.fn() },
+    callParticipant: { deleteMany: jest.fn() },
     user: {
       findMany: jest.fn(),
     },
@@ -75,6 +86,7 @@ describe('TeamsService', () => {
           name: 'Eng',
           description: undefined,
           members: { create: { userId: ALICE, role: TeamRole.OWNER } },
+          analyticsSettings: { create: { ...DEFAULT_ANALYTICS_THRESHOLDS } },
         },
       });
       expect(result).toEqual(created);

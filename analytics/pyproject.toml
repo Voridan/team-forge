@@ -32,3 +32,7 @@ select = ["E", "F", "I", "N", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: requires Docker for testcontainers-postgres (run with -m integration; skip with -m \"not integration\")",
+]
